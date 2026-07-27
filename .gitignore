@@ -1,0 +1,9 @@
+*.elc
+*.DS_Store
+/.DS_Store
+/.cache/
+/.transaction/
+/.migration/
+/dist/
+/outputs/
+/work/

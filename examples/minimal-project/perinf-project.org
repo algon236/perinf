@@ -1,0 +1,16 @@
+#+title: Personal Information System minimal example
+#+language: en
+
+* Personal Information System minimal example
+:PROPERTIES:
+:ID:               project-metadata-example
+:PERINF_TYPE:      project-metadata
+:PERINF_STATUS:    active
+:PROJECT_ID:       project-example
+:PROJECT_TITLE:    Personal Information System minimal example
+:SCHEMA_VERSION:   1
+:INTERFACE_LANGUAGE: en
+:DATE_FORMAT:      iso
+:TIME_FORMAT:      twenty-four-hour
+:CREATED_AT:       2026-07-26T00:00:00+02:00
+:END:

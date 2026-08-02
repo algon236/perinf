@@ -1,4 +1,4 @@
-;;; perinf-storage.el --- Storage API boundary for Personal Information System -*- lexical-binding: t; -*-
+;;; perinf-storage.el --- Storage API boundary for Personal Work and Information System -*- lexical-binding: t; -*-
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -15,15 +15,15 @@
 (require 'org-id)
 (require 'perinf-project)
 
-(define-error 'perinf-storage-error "Personal Information System storage error")
-(define-error 'perinf-object-not-found "Personal Information System object not found"
+(define-error 'perinf-storage-error "Personal Work and Information System storage error")
+(define-error 'perinf-object-not-found "Personal Work and Information System object not found"
   'perinf-storage-error)
 
 (cl-defstruct perinf-object
   id type title status properties sections file position checksum modified-p)
 
 (defun perinf-storage-read-project (directory)
-  "Return project metadata for the Personal Information System project in DIRECTORY."
+  "Return project metadata for the Personal Work and Information System project in DIRECTORY."
   (perinf-project-read-metadata directory))
 
 (defun perinf-storage--iso-now ()
@@ -323,7 +323,7 @@
                      '("No project directory supplied")))))
     (unless (perinf-project-p project)
       (signal 'perinf-storage-error
-              (list (format "Not an Personal Information System project: %s" project))))
+              (list (format "Not a Personal Work and Information System project: %s" project))))
     (pcase type
       ('task (perinf-storage--create-task data project))
       ('meeting (perinf-storage--create-meeting data project))
@@ -406,6 +406,92 @@ This implementation supports controlled task status changes."
     (car (seq-filter
           (lambda (object) (equal (perinf-object-id object) id))
           (perinf-storage-list 'task project)))))
+
+(defun perinf-storage-person-references (person-id &optional project-directory)
+  "Return tasks and meetings that refer to PERSON-ID in PROJECT-DIRECTORY."
+  (let* ((project
+          (or project-directory
+              (signal 'perinf-storage-error
+                      '("No project directory supplied"))))
+         (tasks
+          (seq-filter
+           (lambda (task)
+             (equal
+              (alist-get 'ASSIGNEE_ID (perinf-object-properties task))
+              person-id))
+           (perinf-storage-list 'task project)))
+         (meetings
+          (seq-filter
+           (lambda (meeting)
+             (seq-some
+              (lambda (participant)
+                (equal
+                 (alist-get
+                  'PERSON_ID (perinf-object-properties participant))
+                 person-id))
+              (perinf-storage-list-children
+               (perinf-object-id meeting) 'participants project)))
+           (perinf-storage-list 'meeting project))))
+    (list :tasks tasks :meetings meetings)))
+
+(defun perinf-storage-set-person-status
+    (person-id status &optional project-directory)
+  "Set PERSON-ID to active or inactive STATUS in PROJECT-DIRECTORY."
+  (let* ((project
+          (or project-directory
+              (signal 'perinf-storage-error
+                      '("No project directory supplied"))))
+         (file (expand-file-name "data/people.org" project)))
+    (unless (memq status '(active inactive))
+      (signal 'perinf-storage-error
+              (list (format "Unsupported person status: %s" status))))
+    (unless (file-readable-p file)
+      (signal 'perinf-storage-error
+              (list (format "Person storage is not readable: %s" file))))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (org-mode)
+      (unless (perinf-storage--find-id person-id)
+        (signal 'perinf-object-not-found (list person-id)))
+      (unless (equal (org-entry-get nil "PERINF_TYPE") "person")
+        (signal 'perinf-storage-error
+                (list (format "Object is not a person: %s" person-id))))
+      (org-entry-put nil "PERINF_STATUS" (symbol-name status))
+      (org-entry-put nil "MODIFIED_AT" (perinf-storage--iso-now))
+      (perinf-storage--atomic-write-buffer (current-buffer) file))
+    (seq-find
+     (lambda (person) (equal (perinf-object-id person) person-id))
+     (perinf-storage-list 'person project))))
+
+(defun perinf-storage-delete-person (person-id &optional project-directory)
+  "Permanently delete unreferenced PERSON-ID from PROJECT-DIRECTORY.
+Signal an error when tasks or meetings still refer to the person."
+  (let* ((project
+          (or project-directory
+              (signal 'perinf-storage-error
+                      '("No project directory supplied"))))
+         (references (perinf-storage-person-references person-id project))
+         (tasks (plist-get references :tasks))
+         (meetings (plist-get references :meetings))
+         (file (expand-file-name "data/people.org" project)))
+    (when (or tasks meetings)
+      (user-error
+       "Person is still referenced by %d task(s) and %d meeting(s)"
+       (length tasks) (length meetings)))
+    (unless (file-readable-p file)
+      (signal 'perinf-storage-error
+              (list (format "Person storage is not readable: %s" file))))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (org-mode)
+      (unless (perinf-storage--find-id person-id)
+        (signal 'perinf-object-not-found (list person-id)))
+      (unless (equal (org-entry-get nil "PERINF_TYPE") "person")
+        (signal 'perinf-storage-error
+                (list (format "Object is not a person: %s" person-id))))
+      (org-cut-subtree)
+      (perinf-storage--atomic-write-buffer (current-buffer) file))
+    t))
 
 (defun perinf-storage-list (type &optional project-directory)
   "Return all objects of TYPE from PROJECT-DIRECTORY."
@@ -638,6 +724,42 @@ This implementation supports controlled task status changes."
                     :position (point))
                    objects))))))
          (nreverse objects)))
+      ('document
+       (let ((file (expand-file-name
+                    "media/documents/document-index.org" project))
+             objects)
+         (when (file-readable-p file)
+           (with-temp-buffer
+             (insert-file-contents file)
+             (org-mode)
+             (org-map-entries
+              (lambda ()
+                (when (equal (org-entry-get nil "PERINF_TYPE") "document")
+                  (push
+                   (make-perinf-object
+                    :id (org-entry-get nil "ID")
+                    :type 'document
+                    :title (org-get-heading t t t t)
+                    :status (intern (or (org-entry-get nil "PERINF_STATUS")
+                                        "available"))
+                    :properties
+                    `((MEETING_ID . ,(org-entry-get nil "MEETING_ID"))
+                      (AGENDA_ITEM_ID
+                       . ,(org-entry-get nil "AGENDA_ITEM_ID"))
+                      (PARENT_TYPE . ,(org-entry-get nil "PARENT_TYPE"))
+                      (PARENT_ID . ,(org-entry-get nil "PARENT_ID"))
+                      (FILE_REFERENCE
+                       . ,(org-entry-get nil "FILE_REFERENCE"))
+                      (ORIGINAL_FILE_NAME
+                       . ,(org-entry-get nil "ORIGINAL_FILE_NAME"))
+                      (CHECKSUM_SHA256
+                       . ,(org-entry-get nil "CHECKSUM_SHA256"))
+                      (FILE_SIZE_BYTES
+                       . ,(org-entry-get nil "FILE_SIZE_BYTES")))
+                    :file file
+                    :position (point))
+                   objects))))))
+         (nreverse objects)))
       ('transcript
        (let ((directory (expand-file-name "data/transcripts" project))
              objects)
@@ -814,6 +936,82 @@ This implementation supports controlled task status changes."
        :status 'available
        :properties
        `((MEETING_ID . ,meeting-id)
+         (FILE_REFERENCE . ,relative)
+         (ORIGINAL_FILE_NAME . ,original-name)
+         (CHECKSUM_SHA256 . ,checksum)
+         (FILE_SIZE_BYTES . ,(number-to-string size)))
+       :file index-file))))
+
+(defun perinf-storage-attach-document
+    (meeting-id agenda-item-id source-file &optional project-directory)
+  "Copy SOURCE-FILE into managed storage and attach it to a meeting or agenda item."
+  (let* ((project
+          (or project-directory
+              (signal 'perinf-storage-error
+                      '("No project directory supplied"))))
+         (meeting (perinf-storage--meeting-by-id meeting-id project))
+         (agenda-item
+          (and agenda-item-id
+               (seq-find
+                (lambda (item)
+                  (equal (perinf-object-id item) agenda-item-id))
+                (perinf-storage--list-agenda-items meeting-id project))))
+         (document-id (concat "document-" (org-id-uuid)))
+         (start-at (alist-get 'START_AT (perinf-object-properties meeting)))
+         (year (if start-at (substring start-at 0 4)
+                 (format-time-string "%Y")))
+         (extension (file-name-extension source-file))
+         (relative
+          (format "media/documents/%s/%s%s"
+                  year document-id
+                  (if extension (concat "." (downcase extension)) "")))
+         (destination (expand-file-name relative project))
+         (index-file
+          (expand-file-name "media/documents/document-index.org" project))
+         (original-name (file-name-nondirectory source-file))
+         (parent-type (if agenda-item-id "agenda-item" "meeting"))
+         (parent-id (or agenda-item-id meeting-id))
+         (now (perinf-storage--iso-now)))
+    (unless (file-readable-p source-file)
+      (signal 'perinf-storage-error
+              (list (format "Document is not readable: %s" source-file))))
+    (when (and agenda-item-id (null agenda-item))
+      (signal 'perinf-object-not-found (list agenda-item-id)))
+    (make-directory (file-name-directory destination) t)
+    (copy-file source-file destination nil)
+    (let ((checksum (perinf-storage--file-sha256 destination))
+          (size (file-attribute-size (file-attributes destination))))
+      (unless (file-exists-p index-file)
+        (with-temp-file index-file
+          (insert "#+title: Documents\n#+startup: overview\n")))
+      (with-temp-buffer
+        (insert-file-contents index-file)
+        (goto-char (point-max))
+        (unless (bolp) (insert "\n"))
+        (insert "\n* " (perinf-storage--safe-line original-name) "\n"
+                ":PROPERTIES:\n"
+                ":ID:                 " document-id "\n"
+                ":PERINF_TYPE:        document\n"
+                ":PERINF_STATUS:      available\n"
+                ":MEETING_ID:         " meeting-id "\n"
+                (if agenda-item-id
+                    (concat ":AGENDA_ITEM_ID:     " agenda-item-id "\n") "")
+                ":PARENT_TYPE:        " parent-type "\n"
+                ":PARENT_ID:          " parent-id "\n"
+                ":FILE_REFERENCE:     " relative "\n"
+                ":ORIGINAL_FILE_NAME: " original-name "\n"
+                ":CHECKSUM_SHA256:    " checksum "\n"
+                ":FILE_SIZE_BYTES:    " (number-to-string size) "\n"
+                ":IMPORTED_AT:        " now "\n"
+                ":END:\n")
+        (perinf-storage--atomic-write-buffer (current-buffer) index-file))
+      (make-perinf-object
+       :id document-id :type 'document :title original-name :status 'available
+       :properties
+       `((MEETING_ID . ,meeting-id)
+         (AGENDA_ITEM_ID . ,agenda-item-id)
+         (PARENT_TYPE . ,parent-type)
+         (PARENT_ID . ,parent-id)
          (FILE_REFERENCE . ,relative)
          (ORIGINAL_FILE_NAME . ,original-name)
          (CHECKSUM_SHA256 . ,checksum)

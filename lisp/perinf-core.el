@@ -1,4 +1,4 @@
-;;; perinf-core.el --- Main entry point for Personal Information System -*- lexical-binding: t; -*-
+;;; perinf-core.el --- Main entry point for Personal Work and Information System -*- lexical-binding: t; -*-
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -20,19 +20,19 @@
 (require 'perinf-statuses)
 
 (defconst perinf-version "0.1.0"
-  "Current Personal Information System application version.")
+  "Current Personal Work and Information System application version.")
 
 (defvar perinf-current-project nil
-  "Directory of the current Personal Information System project, or nil.")
+  "Directory of the current Personal Work and Information System project, or nil.")
 
 (defcustom perinf-last-project-directory nil
-  "Most recently opened Personal Information System project directory."
+  "Most recently opened Personal Work and Information System project directory."
   :type '(choice (const :tag "None" nil) directory)
   :group 'perinf)
 
 (defcustom perinf-state-file
   (locate-user-emacs-file "perinf/state.el")
-  "File containing local, non-project Personal Information System state.
+  "File containing local, non-project Personal Work and Information System state.
 This file stores convenience data such as the last opened project.  It is not
 part of the persistent shared Org data."
   :type 'file
@@ -52,7 +52,7 @@ part of the persistent shared Org data."
   "Keymap for `perinf-mode'.")
 
 (defvar-local perinf-current-view 'home
-  "View rendered in the current Personal Information System buffer.")
+  "View rendered in the current Personal Work and Information System buffer.")
 
 (defvar-local perinf-search-query nil
   "Most recent search query displayed in the current buffer.")
@@ -63,8 +63,11 @@ part of the persistent shared Org data."
 (defvar-local perinf-selected-object nil
   "Object displayed in the detail view of the current buffer.")
 
-(define-derived-mode perinf-mode special-mode "Personal Information System"
-  "Major mode for the Personal Information System start page.")
+(defvar-local perinf-administration-people-expanded-p nil
+  "Non-nil when the person administration list is expanded.")
+
+(define-derived-mode perinf-mode special-mode "Personal Work and Information System"
+  "Major mode for the Personal Work and Information System start page.")
 
 (defun perinf-core--insert-button (label action &rest properties)
   "Insert a button with LABEL and ACTION using PROPERTIES."
@@ -73,8 +76,28 @@ part of the persistent shared Org data."
          'follow-link t
          properties))
 
+(defun perinf-core--call-interactively-from-button (command)
+  "Call COMMAND from a text button without losing minibuffer focus.
+Mouse button actions are deferred until their mouse event has finished.
+Keyboard button actions run COMMAND immediately."
+  (if (mouse-event-p last-input-event)
+      (let ((buffer (current-buffer)))
+        (run-at-time
+         0 nil
+         (lambda ()
+           (when (buffer-live-p buffer)
+             (with-current-buffer buffer
+               (call-interactively command))))))
+    (call-interactively command)))
+
+(defun perinf-core--call-function-from-button (function &rest arguments)
+  "Call FUNCTION with ARGUMENTS after the current button event finishes."
+  (if (mouse-event-p last-input-event)
+      (apply #'run-at-time 0 nil function arguments)
+    (apply function arguments)))
+
 (defun perinf-core--insert-navigation ()
-  "Insert the translated Personal Information System main navigation."
+  "Insert the translated Personal Work and Information System main navigation."
   (dolist (entry '((home . perinf-core-home)
                    (work . perinf-core-work)
                    (meetings . perinf-core-meetings)
@@ -274,7 +297,8 @@ part of the persistent shared Org data."
              (perinf-core--insert-button
               (perinf-i18n (car entry))
               (lambda (_button)
-                (call-interactively #'perinf-person-create))))
+                (perinf-core--call-interactively-from-button
+                 #'perinf-person-create))))
             ('decision
              (perinf-core--insert-button
               (perinf-i18n (car entry))
@@ -531,7 +555,8 @@ part of the persistent shared Org data."
                 (perinf-core--insert-button
                  (perinf-i18n 'action.add-agenda-item)
                  (lambda (button)
-                   (perinf-meeting-add-agenda-item
+                   (perinf-core--call-function-from-button
+                    #'perinf-meeting-add-agenda-item
                     (button-get button 'perinf-meeting-id)))
                  'perinf-meeting-id (perinf-object-id meeting))
                 (when agenda-items
@@ -562,7 +587,9 @@ part of the persistent shared Org data."
           "\n\n")
   (perinf-core--insert-button
    (perinf-i18n 'action.new-person)
-   (lambda (_button) (call-interactively #'perinf-person-create)))
+   (lambda (_button)
+     (perinf-core--call-interactively-from-button
+      #'perinf-person-create)))
   (insert "   ")
   (perinf-core--insert-button
    (perinf-i18n 'action.new-decision)
@@ -786,7 +813,7 @@ part of the persistent shared Org data."
     (user-error "%s" (perinf-i18n 'home.no-project)))
   (when (string-empty-p query)
     (user-error "%s" (perinf-i18n 'search.empty-query)))
-  (let ((buffer (get-buffer-create "*Personal Information System*")))
+  (let ((buffer (get-buffer-create "*Personal Work and Information System*")))
     (with-current-buffer buffer
       (unless (derived-mode-p 'perinf-mode)
         (perinf-mode))
@@ -1167,6 +1194,19 @@ part of the persistent shared Org data."
                 (perinf-object-id object)
                 'agenda
                 perinf-current-project))
+              (all-documents
+               (perinf-storage-list 'document perinf-current-project))
+              (meeting-documents
+               (seq-filter
+                (lambda (document)
+                  (and
+                   (equal
+                    (alist-get 'MEETING_ID
+                               (perinf-object-properties document))
+                    (perinf-object-id object))
+                   (null (alist-get 'AGENDA_ITEM_ID
+                                    (perinf-object-properties document)))))
+                all-documents))
               (meeting-decisions
                (seq-filter
                 (lambda (decision)
@@ -1423,13 +1463,49 @@ part of the persistent shared Org data."
                  "\n")
          (if agenda-items
              (dolist (item agenda-items)
-               (insert
-                (format "%s. %s\n"
-                        (alist-get
-                         'AGENDA_NUMBER
-                         (perinf-object-properties item))
-                        (perinf-object-title item))))
+               (let ((item-documents
+                      (seq-filter
+                       (lambda (document)
+                         (equal
+                          (alist-get 'AGENDA_ITEM_ID
+                                     (perinf-object-properties document))
+                          (perinf-object-id item)))
+                       all-documents)))
+                 (insert
+                  (format "%s. %s   "
+                          (alist-get
+                           'AGENDA_NUMBER
+                           (perinf-object-properties item))
+                          (perinf-object-title item)))
+                 (perinf-core--insert-button
+                  (perinf-i18n 'document.attach-to-agenda-item)
+                  (lambda (button)
+                    (perinf-core--call-function-from-button
+                     #'perinf-meeting-attach-document
+                     (button-get button 'perinf-meeting-id)
+                     (button-get button 'perinf-agenda-item-id)))
+                  'perinf-meeting-id (perinf-object-id object)
+                  'perinf-agenda-item-id (perinf-object-id item))
+                 (insert "\n")
+                 (dolist (document item-documents)
+                   (insert "    • " (perinf-object-title document) "\n"))))
            (insert (perinf-i18n 'details.none) "\n"))
+         (insert "\n"
+                 (propertize (perinf-i18n 'document.meeting-title)
+                             'face 'bold)
+                 "   ")
+         (perinf-core--insert-button
+          (perinf-i18n 'document.attach-to-meeting)
+          (lambda (button)
+            (perinf-core--call-function-from-button
+             #'perinf-meeting-attach-document
+             (button-get button 'perinf-meeting-id)))
+          'perinf-meeting-id (perinf-object-id object))
+         (insert "\n")
+         (if meeting-documents
+             (dolist (document meeting-documents)
+               (insert "• " (perinf-object-title document) "\n"))
+           (insert (perinf-i18n 'document.none) "\n"))
          (insert "\n"
                  (propertize (perinf-i18n 'meeting.decisions)
                              'face 'bold)
@@ -1579,12 +1655,18 @@ part of the persistent shared Org data."
 
 (defun perinf-core-show-object (object)
   "Show detail view for OBJECT."
-  (let ((buffer (get-buffer-create "*Personal Information System*")))
+  (let ((buffer (get-buffer-create "*Personal Work and Information System*")))
     (with-current-buffer buffer
       (setq perinf-selected-object object
             perinf-current-view 'detail)
       (perinf-core--render))
     (pop-to-buffer buffer)))
+
+(defun perinf-core-toggle-administration-people ()
+  "Toggle the person list in the administration view."
+  (setq perinf-administration-people-expanded-p
+        (not perinf-administration-people-expanded-p))
+  (perinf-core--render))
 
 (defun perinf-core--render-administration ()
   "Insert the administration view."
@@ -1592,29 +1674,94 @@ part of the persistent shared Org data."
                       'face '(:height 1.2 :weight bold))
           "\n\n")
   (if perinf-current-project
-      (insert
-       (format "%s: %s\n"
-               (perinf-i18n 'project.title)
-               (perinf-core--metadata-value 'PROJECT_TITLE))
-       (format "%s: %s\n"
-               (perinf-i18n 'project.location)
-               (abbreviate-file-name perinf-current-project))
-       (format "%s: %s\n"
-               (perinf-i18n 'project.language)
-               (perinf-core--metadata-value 'INTERFACE_LANGUAGE))
-       (format "%s: %s\n"
-               (perinf-i18n 'project.date-format)
-               (perinf-core--display-setting 'DATE_FORMAT))
-       (format "%s: %s\n"
-               (perinf-i18n 'project.time-format)
-               (perinf-core--display-setting 'TIME_FORMAT))
-       (format "%s: %s\n"
-               (perinf-i18n 'project.schema-version)
-               (perinf-core--metadata-value 'SCHEMA_VERSION)))
+      (progn
+        (insert
+         (format "%s: %s\n"
+                 (perinf-i18n 'project.title)
+                 (perinf-core--metadata-value 'PROJECT_TITLE))
+         (format "%s: %s\n"
+                 (perinf-i18n 'project.location)
+                 (abbreviate-file-name perinf-current-project))
+         (format "%s: %s\n"
+                 (perinf-i18n 'project.language)
+                 (perinf-core--metadata-value 'INTERFACE_LANGUAGE))
+         (format "%s: %s\n"
+                 (perinf-i18n 'project.date-format)
+                 (perinf-core--display-setting 'DATE_FORMAT))
+         (format "%s: %s\n"
+                 (perinf-i18n 'project.time-format)
+                 (perinf-core--display-setting 'TIME_FORMAT))
+         (format "%s: %s\n"
+                 (perinf-i18n 'project.schema-version)
+                 (perinf-core--metadata-value 'SCHEMA_VERSION)))
+        (insert "\n"
+                (if perinf-administration-people-expanded-p "▾ " "▸ "))
+        (perinf-core--insert-button
+         (if perinf-administration-people-expanded-p
+             (perinf-i18n 'administration.hide-people)
+           (perinf-i18n 'administration.people))
+         (lambda (_button)
+           (perinf-core-toggle-administration-people))
+         'face 'bold)
+        (insert "\n")
+        (when perinf-administration-people-expanded-p
+          (insert "\n")
+          (let ((people
+                 (perinf-storage-list 'person perinf-current-project)))
+            (if people
+                (dolist (person people)
+                  (let* ((person-id (perinf-object-id person))
+                         (status (perinf-object-status person))
+                         (references
+                          (perinf-storage-person-references
+                           person-id perinf-current-project))
+                         (task-count
+                          (length (plist-get references :tasks)))
+                         (meeting-count
+                          (length (plist-get references :meetings))))
+                    (insert "• "
+                            (perinf-object-title person)
+                            " — "
+                            (perinf-i18n
+                             (intern (format "status.%s" status)))
+                            (format
+                             " — %s: %d, %s: %d\n  "
+                             (perinf-i18n 'task.count)
+                             task-count
+                             (perinf-i18n 'meeting.count)
+                             meeting-count))
+                    (if (eq status 'active)
+                        (perinf-core--insert-button
+                         (perinf-i18n 'person.archive)
+                         (lambda (button)
+                           (perinf-core--call-function-from-button
+                            #'perinf-person-archive
+                            (button-get button 'perinf-person-id)))
+                         'perinf-person-id person-id)
+                      (perinf-core--insert-button
+                       (perinf-i18n 'person.reactivate)
+                       (lambda (button)
+                         (perinf-core--call-function-from-button
+                          #'perinf-person-reactivate
+                          (button-get button 'perinf-person-id)))
+                       'perinf-person-id person-id))
+                    (insert "   ")
+                    (perinf-core--insert-button
+                     (perinf-i18n 'person.delete)
+                     (lambda (button)
+                       (perinf-core--call-function-from-button
+                        #'perinf-person-delete
+                        (button-get button 'perinf-person-id)))
+                     'perinf-person-id person-id
+                     'face (if (or (> task-count 0) (> meeting-count 0))
+                               'shadow
+                             'error))
+                    (insert "\n\n")))
+              (insert (perinf-i18n 'person.none) "\n")))))
     (insert (perinf-i18n 'home.no-project) "\n")))
 
 (defun perinf-core--render ()
-  "Render the current Personal Information System view."
+  "Render the current Personal Work and Information System view."
   (let ((inhibit-read-only t))
     (erase-buffer)
     (insert (propertize (perinf-i18n 'app.name)
@@ -1653,8 +1800,8 @@ part of the persistent shared Org data."
     (goto-char (point-min))))
 
 (defun perinf-core--show-view (view)
-  "Show Personal Information System VIEW in the main buffer."
-  (let ((buffer (get-buffer-create "*Personal Information System*")))
+  "Show Personal Work and Information System VIEW in the main buffer."
+  (let ((buffer (get-buffer-create "*Personal Work and Information System*")))
     (with-current-buffer buffer
       (unless (derived-mode-p 'perinf-mode)
         (perinf-mode))
@@ -1668,8 +1815,8 @@ part of the persistent shared Org data."
 
 ;;;###autoload
 (defun perinf-core-open (&optional project-directory)
-  "Open the Personal Information System start page.
-With PROJECT-DIRECTORY, display metadata from that Personal Information System project."
+  "Open the Personal Work and Information System start page.
+With PROJECT-DIRECTORY, display metadata from that Personal Work and Information System project."
   (interactive)
   (perinf-i18n-load-locales)
   (perinf-core--load-state)
@@ -1680,8 +1827,8 @@ With PROJECT-DIRECTORY, display metadata from that Personal Information System p
       (if (perinf-project-p candidate)
           (perinf-core--activate-project candidate)
         (when project-directory
-          (user-error "Not a Personal Information System project: %s" candidate)))))
-  (let ((buffer (get-buffer-create "*Personal Information System*")))
+          (user-error "Not a Personal Work and Information System project: %s" candidate)))))
+  (let ((buffer (get-buffer-create "*Personal Work and Information System*")))
     (with-current-buffer buffer
       (perinf-mode)
       (setq perinf-current-view 'home)
@@ -1689,32 +1836,32 @@ With PROJECT-DIRECTORY, display metadata from that Personal Information System p
     (pop-to-buffer buffer)))
 
 (defun perinf-core-home ()
-  "Show the Personal Information System home view."
+  "Show the Personal Work and Information System home view."
   (interactive)
   (perinf-core--show-view 'home))
 
 (defun perinf-core-work ()
-  "Show the Personal Information System work view."
+  "Show the Personal Work and Information System work view."
   (interactive)
   (perinf-core--show-view 'work))
 
 (defun perinf-core-meetings ()
-  "Show the Personal Information System meetings view."
+  "Show the Personal Work and Information System meetings view."
   (interactive)
   (perinf-core--show-view 'meetings))
 
 (defun perinf-core-records ()
-  "Show the Personal Information System records view."
+  "Show the Personal Work and Information System records view."
   (interactive)
   (perinf-core--show-view 'records))
 
 (defun perinf-core-administration ()
-  "Show the Personal Information System administration view."
+  "Show the Personal Work and Information System administration view."
   (interactive)
   (perinf-core--show-view 'administration))
 
 (defun perinf-core--load-state ()
-  "Load local Personal Information System convenience state without evaluating code."
+  "Load local Personal Work and Information System convenience state without evaluating code."
   (when (file-readable-p perinf-state-file)
     (condition-case nil
         (with-temp-buffer
@@ -1727,7 +1874,7 @@ With PROJECT-DIRECTORY, display metadata from that Personal Information System p
       (error nil))))
 
 (defun perinf-core--save-state ()
-  "Atomically save local Personal Information System convenience state."
+  "Atomically save local Personal Work and Information System convenience state."
   (let* ((directory (file-name-directory perinf-state-file))
          (temporary nil))
     (make-directory directory t)
@@ -1747,14 +1894,14 @@ With PROJECT-DIRECTORY, display metadata from that Personal Information System p
         (delete-file temporary)))))
 
 (defun perinf-core--activate-project (directory)
-  "Activate and validate the Personal Information System project in DIRECTORY."
+  "Activate and validate the Personal Work and Information System project in DIRECTORY."
   (let* ((normalized
           (file-name-as-directory (expand-file-name directory)))
          (metadata (perinf-project-read-metadata normalized))
          (language-name (alist-get 'INTERFACE_LANGUAGE metadata nil nil #'eq))
          (language (intern language-name)))
     (unless (perinf-project-p normalized)
-      (user-error "Not a Personal Information System project: %s" normalized))
+      (user-error "Not a Personal Work and Information System project: %s" normalized))
     (setq perinf-current-project normalized
           perinf-last-project-directory normalized
           perinf-interface-language language)
@@ -1764,12 +1911,12 @@ With PROJECT-DIRECTORY, display metadata from that Personal Information System p
 ;;;###autoload
 (defun perinf-core-create-project
     (directory title language date-format time-format)
-  "Interactively create and open a new Personal Information System project."
+  "Interactively create and open a new Personal Work and Information System project."
   (interactive
    (let* ((directory
            (read-directory-name
             (perinf-i18n 'project.create-directory-prompt)
-            (expand-file-name "Personal Information System" (or (getenv "HOME") default-directory))
+            (expand-file-name "Personal Work and Information System" (or (getenv "HOME") default-directory))
             nil nil))
           (title (read-string (perinf-i18n 'project.title-prompt)))
           (language
@@ -1802,7 +1949,7 @@ With PROJECT-DIRECTORY, display metadata from that Personal Information System p
 
 ;;;###autoload
 (defun perinf-core-select-project (directory)
-  "Select and open the existing Personal Information System project in DIRECTORY."
+  "Select and open the existing Personal Work and Information System project in DIRECTORY."
   (interactive
    (list
     (read-directory-name
@@ -1814,10 +1961,10 @@ With PROJECT-DIRECTORY, display metadata from that Personal Information System p
   (perinf-core-open directory))
 
 (defun perinf-core-refresh ()
-  "Refresh the current Personal Information System view."
+  "Refresh the current Personal Work and Information System view."
   (interactive)
   (unless (derived-mode-p 'perinf-mode)
-    (user-error "This is not a Personal Information System buffer"))
+    (user-error "This is not a Personal Work and Information System buffer"))
   (perinf-core--render))
 
 (provide 'perinf-core)

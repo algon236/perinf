@@ -1,6 +1,6 @@
-# Personal Information System
+# Personal Work and Information System
 
-Personal Information System is an Org-backed work management core for tasks, meetings, people,
+Personal Work and Information System is an Org-backed work management core for tasks, meetings, people,
 transcripts, and human-approved minutes.
 
 This repository contains the first executable bootstrap:
@@ -13,6 +13,10 @@ This repository contains the first executable bootstrap:
 - a meeting evidence chain from managed audio and immutable raw transcript to
   externally generated draft minutes, human review, submission, and explicit
   human final approval
+- cancellable agenda-item entry with no partial storage when the user stops
+- managed meeting documents attached either to the meeting itself or to a
+  specific agenda item, with original filename, size, stable IDs, and SHA-256
+  checksum retained for later use as minutes evidence
 
 The core deliberately does not call a transcription or text-generation
 service. Such integrations belong in a separate plugin project. The core
@@ -41,6 +45,12 @@ and then `held`; a planned meeting may also be marked as held directly,
 postponed, or cancelled. A postponed meeting can return to planned status or
 be cancelled. The core records actual start and finish timestamps and rejects
 repeated, terminal, or otherwise invalid transitions.
+
+Agenda-item entry can be cancelled explicitly at the type prompt or by leaving
+the number or title empty; nothing is stored until all required values have
+been supplied. A meeting can retain multiple managed documents, and each
+agenda item can retain its own documents. Imported source files remain
+untouched while PerInf copies each attachment into managed project storage.
 
 Decisions are first-class Org records with a stable ID, normalized decision
 date, optional rationale, localized creation workflow, Records listing, detail
@@ -148,5 +158,5 @@ M-x package-install-file
 
 ## License
 
-Personal Information System is free software licensed under GNU GPL version 3 or any later version.
+Personal Work and Information System is free software licensed under GNU GPL version 3 or any later version.
 See `LICENSE`.

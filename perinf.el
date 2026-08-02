@@ -1,17 +1,17 @@
 ;;; perinf.el --- Org-backed work management core -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2026 Personal Information System contributors
+;; Copyright (C) 2026 Personal Work and Information System contributors
 
-;; Author: Personal Information System contributors
+;; Author: Personal Work and Information System contributors
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1") (org "9.6"))
 ;; Keywords: outlines, calendar, convenience
-;; URL: https://github.com/algon236/perinf
+;; URL: https://example.invalid/perinf
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
 ;;; Commentary:
 
-;; Personal Information System presents tasks, meetings, people, transcripts, and minutes while
+;; Personal Work and Information System presents tasks, meetings, people, transcripts, and minutes while
 ;; keeping ordinary Org files as the persistent source of truth.
 
 ;;; Code:
@@ -92,6 +92,10 @@
 ;;;###autoload
 (defalias 'perinf-attach-meeting-audio
   #'perinf-meeting-attach-audio)
+
+;;;###autoload
+(defalias 'perinf-attach-meeting-document
+  #'perinf-meeting-attach-document)
 
 ;;;###autoload
 (defalias 'perinf-import-meeting-transcript

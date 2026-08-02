@@ -1,4 +1,4 @@
-;;; perinf-test.el --- Bootstrap tests for Personal Information System -*- lexical-binding: t; -*-
+;;; perinf-test.el --- Bootstrap tests for Personal Work and Information System -*- lexical-binding: t; -*-
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -1160,6 +1160,82 @@
                 (AGENDA_KIND . discussion))
               project)
              :type 'user-error)))
+      (delete-directory parent t))))
+
+(ert-deftest perinf-test-cancel-agenda-item-without-writing ()
+  (let* ((parent (make-temp-file "perinf-agenda-cancel-test-" t))
+         (project (expand-file-name "project" parent))
+         (previously-bound (boundp 'perinf-current-project))
+         (previous-project (and previously-bound perinf-current-project))
+         (write-called nil))
+    (unwind-protect
+        (progn
+          (perinf-project-create
+           project "Agenda cancel test" 'da 'day-month-year-dash
+           'twenty-four-hour)
+          (setq perinf-current-project project)
+          (cl-letf (((symbol-function 'read-string)
+                     (lambda (&rest _arguments) ""))
+                    ((symbol-function 'perinf-storage-add-child)
+                     (lambda (&rest _arguments)
+                       (setq write-called t))))
+            (perinf-meeting-add-agenda-item "meeting-not-needed"))
+          (should-not write-called))
+      (if previously-bound
+          (setq perinf-current-project previous-project)
+        (makunbound 'perinf-current-project))
+      (delete-directory parent t))))
+
+(ert-deftest perinf-test-documents-are-managed-for-meeting-and-agenda-item ()
+  (let* ((parent (make-temp-file "perinf-document-test-" t))
+         (project (expand-file-name "project" parent))
+         (source (expand-file-name "meeting-material.txt" parent)))
+    (unwind-protect
+        (progn
+          (perinf-project-create
+           project "Document test" 'da 'day-month-year-dash
+           'twenty-four-hour)
+          (with-temp-file source
+            (insert "Controlled meeting material\n"))
+          (let* ((meeting
+                  (perinf-storage-create
+                   'meeting
+                   '((title . "Document meeting")
+                     (date . "2026-08-12")
+                     (start-time . "14:00:00"))
+                   project))
+                 (meeting-id (perinf-object-id meeting))
+                 (item-id
+                  (perinf-storage-add-child
+                   meeting-id 'agenda 'agenda-item
+                   '((title . "Documented item")
+                     (AGENDA_NUMBER . "1")
+                     (AGENDA_KIND . discussion))
+                   project))
+                 (meeting-document
+                  (perinf-storage-attach-document
+                   meeting-id nil source project))
+                 (item-document
+                  (perinf-storage-attach-document
+                   meeting-id item-id source project))
+                 (documents (perinf-storage-list 'document project)))
+            (should (= (length documents) 2))
+            (should (equal
+                     (alist-get 'PARENT_TYPE
+                                (perinf-object-properties meeting-document))
+                     "meeting"))
+            (should (equal
+                     (alist-get 'AGENDA_ITEM_ID
+                                (perinf-object-properties item-document))
+                     item-id))
+            (should (file-exists-p source))
+            (dolist (document documents)
+              (let ((properties (perinf-object-properties document)))
+                (should (= (length (alist-get 'CHECKSUM_SHA256 properties)) 64))
+                (should
+                 (file-exists-p
+                  (expand-file-name
+                   (alist-get 'FILE_REFERENCE properties) project)))))))
       (delete-directory parent t))))
 
 ;;; perinf-test.el ends here

@@ -1,4 +1,4 @@
-;;; perinf-task.el --- Task workflow for Personal Information System -*- lexical-binding: t; -*-
+;;; perinf-task.el --- Task workflow for Personal Work and Information System -*- lexical-binding: t; -*-
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -70,7 +70,11 @@
 
 (defun perinf-task--select-person ()
   "Prompt for a registered person and return the stable ID."
-  (let* ((people (perinf-storage-list 'person perinf-current-project))
+  (let* ((people
+          (seq-filter
+           (lambda (person)
+             (eq (perinf-object-status person) 'active))
+           (perinf-storage-list 'person perinf-current-project)))
          (choices
           (mapcar
            (lambda (person)

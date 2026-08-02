@@ -1,4 +1,4 @@
-;;; perinf-meeting.el --- Meeting workflow for Personal Information System -*- lexical-binding: t; -*-
+;;; perinf-meeting.el --- Meeting workflow for Personal Work and Information System -*- lexical-binding: t; -*-
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -8,6 +8,8 @@
 (require 'perinf-i18n)
 (require 'perinf-storage)
 (require 'perinf-time)
+(require 'seq)
+(require 'subr-x)
 
 (defun perinf-meeting--setting (property)
   "Return PROPERTY from the current project metadata."
@@ -17,7 +19,7 @@
 
 ;;;###autoload
 (defun perinf-meeting-create ()
-  "Interactively create a meeting in the current Personal Information System project."
+  "Interactively create a meeting in the current Personal Work and Information System project."
   (interactive)
   (unless (and (boundp 'perinf-current-project) perinf-current-project)
     (user-error "%s" (perinf-i18n 'home.no-project)))
@@ -88,7 +90,11 @@
 
 (defun perinf-meeting--select-person ()
   "Prompt for a person and return its ID."
-  (let* ((people (perinf-storage-list 'person perinf-current-project))
+  (let* ((people
+          (seq-filter
+           (lambda (person)
+             (eq (perinf-object-status person) 'active))
+           (perinf-storage-list 'person perinf-current-project)))
          (choices
           (mapcar (lambda (person)
                     (cons (perinf-object-title person)
@@ -136,7 +142,8 @@
 (defun perinf-meeting--select-agenda-kind ()
   "Prompt for an agenda kind and return its internal symbol."
   (let ((choices
-         `((,(perinf-i18n 'agenda.kind.information) . information)
+         `((,(perinf-i18n 'common.cancel) . cancel)
+           (,(perinf-i18n 'agenda.kind.information) . information)
            (,(perinf-i18n 'agenda.kind.discussion) . discussion)
            (,(perinf-i18n 'agenda.kind.decision) . decision)
            (,(perinf-i18n 'agenda.kind.election) . election)
@@ -149,23 +156,47 @@
            (perinf-i18n 'agenda.kind.discussion))
           choices))))
 
+(defun perinf-meeting--read-agenda-text (prompt)
+  "Read required agenda text with an explicit empty-input cancel path."
+  (let ((value (string-trim (read-string prompt))))
+    (unless (string-empty-p value) value)))
+
 ;;;###autoload
 (defun perinf-meeting-add-agenda-item (&optional meeting-id)
   "Add an agenda item to MEETING-ID."
   (interactive)
   (unless (and (boundp 'perinf-current-project) perinf-current-project)
     (user-error "%s" (perinf-i18n 'home.no-project)))
-  (let ((selected-meeting (or meeting-id (perinf-meeting--select-meeting)))
-        (number (read-string (perinf-i18n 'agenda.number-prompt)))
-        (title (read-string (perinf-i18n 'agenda.title-prompt)))
-        (kind (perinf-meeting--select-agenda-kind)))
-    (perinf-storage-add-child
-     selected-meeting 'agenda 'agenda-item
-     `((title . ,title)
-       (AGENDA_NUMBER . ,number)
-       (AGENDA_KIND . ,kind))
-     perinf-current-project)
-    (message "%s" (perinf-i18n 'agenda.created))
+  (let* ((selected-meeting (or meeting-id (perinf-meeting--select-meeting)))
+         (number (perinf-meeting--read-agenda-text
+                  (perinf-i18n 'agenda.number-prompt)))
+         (title (and number
+                     (perinf-meeting--read-agenda-text
+                      (perinf-i18n 'agenda.title-prompt))))
+         (kind (and title (perinf-meeting--select-agenda-kind))))
+    (if (or (null number) (null title) (eq kind 'cancel))
+        (message "%s" (perinf-i18n 'agenda.cancelled))
+      (perinf-storage-add-child
+       selected-meeting 'agenda 'agenda-item
+       `((title . ,title)
+         (AGENDA_NUMBER . ,number)
+         (AGENDA_KIND . ,kind))
+       perinf-current-project)
+      (message "%s" (perinf-i18n 'agenda.created))
+      (when (fboundp 'perinf-core-meetings)
+        (perinf-core-meetings)))))
+
+;;;###autoload
+(defun perinf-meeting-attach-document (meeting-id &optional agenda-item-id)
+  "Attach a document to MEETING-ID or optional AGENDA-ITEM-ID."
+  (interactive (list (perinf-meeting--select-meeting) nil))
+  (unless (and (boundp 'perinf-current-project) perinf-current-project)
+    (user-error "%s" (perinf-i18n 'home.no-project)))
+  (let ((source-file
+         (read-file-name (perinf-i18n 'document.file-prompt) nil nil t)))
+    (perinf-storage-attach-document
+     meeting-id agenda-item-id source-file perinf-current-project)
+    (message "%s" (perinf-i18n 'document.attached))
     (when (fboundp 'perinf-core-meetings)
       (perinf-core-meetings))))
 

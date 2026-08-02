@@ -1,13 +1,13 @@
-#+title: Personal Information System minimal example
+#+title: Personal Work and Information System minimal example
 #+language: en
 
-* Personal Information System minimal example
+* Personal Work and Information System minimal example
 :PROPERTIES:
 :ID:               project-metadata-example
 :PERINF_TYPE:      project-metadata
 :PERINF_STATUS:    active
 :PROJECT_ID:       project-example
-:PROJECT_TITLE:    Personal Information System minimal example
+:PROJECT_TITLE:    Personal Work and Information System minimal example
 :SCHEMA_VERSION:   1
 :INTERFACE_LANGUAGE: en
 :DATE_FORMAT:      iso

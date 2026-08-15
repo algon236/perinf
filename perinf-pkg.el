@@ -4,7 +4,7 @@
 
 (define-package
   "perinf"
-  "0.1.0"
+  "1.0.0"
   "Org-backed personal work and information management"
   '((emacs "29.1")
     (org "9.6"))

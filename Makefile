@@ -1,5 +1,5 @@
 EMACS ?= emacs
-VERSION := 0.1.0
+VERSION := 1.0.0
 PACKAGE := perinf-$(VERSION)
 DIST_DIR := dist
 

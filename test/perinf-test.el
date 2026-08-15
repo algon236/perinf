@@ -337,6 +337,46 @@
       (mapcar #'perinf-object-title ordered)
       '("Overdue" "Future" "No deadline" "Cancelled" "Completed")))))
 
+(ert-deftest perinf-test-completed-and-cancelled-archive-categories ()
+  (let* ((open-task
+          (make-perinf-object
+           :id "task-open" :type 'task :title "Open work order"
+           :status 'open :properties nil))
+         (completed-task
+          (make-perinf-object
+           :id "task-completed" :type 'task :title "Completed work order"
+           :status 'completed :properties nil))
+         (cancelled-task
+          (make-perinf-object
+           :id "task-cancelled" :type 'task :title "Cancelled work order"
+           :status 'cancelled :properties nil))
+         (held-meeting
+          (make-perinf-object
+           :id "meeting-held" :type 'meeting :title "Held meeting"
+           :status 'held :properties '((START_AT . "2026-08-01T10:00"))))
+         (cancelled-meeting
+          (make-perinf-object
+           :id "meeting-cancelled" :type 'meeting :title "Cancelled meeting"
+           :status 'cancelled
+           :properties '((START_AT . "2026-08-02T10:00"))))
+         (tasks (list open-task completed-task cancelled-task))
+         (meetings (list held-meeting cancelled-meeting)))
+    (should
+     (equal (mapcar #'perinf-object-id (perinf-core--active-tasks tasks))
+            '("task-open")))
+    (should
+     (equal (mapcar #'perinf-object-id
+                    (perinf-core--completed-tasks tasks))
+            '("task-completed")))
+    (should
+     (equal (mapcar #'perinf-object-id
+                    (perinf-core--archived-meetings meetings))
+            '("meeting-held")))
+    (should
+     (equal (mapcar #'perinf-object-id
+                    (perinf-core--cancelled-objects tasks meetings))
+            '("meeting-cancelled" "task-cancelled")))))
+
 (ert-deftest perinf-test-meeting-round-trip-through-storage-api ()
   (let* ((parent (make-temp-file "perinf-meeting-test-" t))
          (project (expand-file-name "project" parent)))

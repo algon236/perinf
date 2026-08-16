@@ -5,7 +5,7 @@ for Emacs.
 
 ![Personal Information System](images/perinf.png)
 
-*Personal Information System*
+*Personal Information System – her i dansk udgave*
 
 It can be used as an alternative to, or a supplement for, Org Agenda. It keeps
 ordinary Org files as the source of truth while providing

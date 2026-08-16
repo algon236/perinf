@@ -1,7 +1,14 @@
 # Personal Work and Information System
 
 PerInf 1.0 is an Org-backed personal information and work-management system
-for Emacs. It keeps ordinary Org files as the source of truth while providing
+for Emacs.
+
+![Personal Information System](images/perinf.png)
+
+*Personal Information System – her i dansk udgave*
+
+It can be used as an alternative to, or a supplement for, Org Agenda. It keeps
+ordinary Org files as the source of truth while providing
 a unified interface for tasks, meetings, people, decisions, documents,
 transcripts, and human-approved minutes.
 

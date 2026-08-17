@@ -14,7 +14,7 @@ transcripts, and human-approved minutes.
 
 ## Highlights
 
-- controlled task and meeting workflows, including work-time tracking
+- controlled task and meeting workflows, including persistent work timers
 - separate archive sections for completed and cancelled records
 - links from meeting evidence through minutes and decisions to resulting tasks
 - managed audio and document imports with checksums and stable identifiers
@@ -24,6 +24,33 @@ transcripts, and human-approved minutes.
 Transcription and text generation are intentionally kept outside the core.
 Plugins may create artifacts, but PerInf records their provenance and requires
 human approval before minutes become final.
+
+## Work timers and recorded activity
+
+Each active task can have its own work timer, and several task timers may run
+at the same time. PerInf stores both accumulated work time and the start of the
+current interval, so elapsed time survives Emacs restarts and remains available
+after a task is completed or cancelled. Work time is displayed as `H:MM:SS`.
+
+An open Emacs buffer or file can be associated with one active task. File paths
+and names of non-file buffers are stored with the task. Once a file has been
+associated, PerInf recognizes it automatically when it is opened again. While
+the task timer is running, activity in that buffer updates the task's **last
+recorded activity** at most once per minute. PerInf deliberately does not infer
+which task unrelated keyboard or mouse activity belongs to.
+
+Use the **Associate open buffer or file** action in a task's detail view, or run
+`M-x perinf-associate-buffer-with-task` from the work buffer. Starting a timer
+with `M-x perinf-start-task-timer` from a work buffer associates that buffer
+automatically. Use `M-x perinf-dissociate-buffer-from-task` to remove the
+association.
+
+PerInf checks running timers once per minute. A timer is stopped automatically
+after 15 minutes without recorded activity, independently of other running
+timers. The work interval ends exactly at the 15-minute boundary, and Emacs
+shows a minibuffer message naming the task that was stopped. For a running
+timer created before activity tracking was available, the timer start time is
+used as the fallback activity time.
 
 ## Getting started
 

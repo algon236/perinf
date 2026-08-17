@@ -299,6 +299,102 @@
              :type 'user-error)))
       (delete-directory parent t))))
 
+(ert-deftest perinf-test-task-activity-resource-and-last-activity ()
+  (let* ((parent (make-temp-file "perinf-task-activity-test-" t))
+         (project (expand-file-name "project" parent))
+         (work-file (expand-file-name "work-note.org" parent)))
+    (unwind-protect
+        (progn
+          (perinf-project-create
+           project "Activity test" 'en 'iso 'twenty-four-hour)
+          (with-temp-file work-file (insert "work"))
+          (let* ((created
+                  (perinf-storage-create
+                   'task '((title . "Tracked task")) project))
+                 (id (perinf-object-id created)))
+            (perinf-storage-update
+             id '((PERINF_STATUS . active)) project)
+            (perinf-storage-start-task-timer id project)
+            (perinf-storage-set-task-activity-resource
+             id 'file work-file t project)
+            (should
+             (perinf-storage-touch-task-activity
+              id 'file work-file "2026-08-17T10:15:00+02:00" project))
+            (let* ((task (car (perinf-storage-list 'task project)))
+                   (properties (perinf-object-properties task)))
+              (should (equal (alist-get 'TASK_ACTIVITY_FILES properties)
+                             (list work-file)))
+              (should (equal (alist-get 'TASK_LAST_ACTIVITY_AT properties)
+                             "2026-08-17T10:15:00+02:00"))
+              (should (equal
+                       (alist-get 'TASK_LAST_ACTIVITY_RESOURCE properties)
+                       work-file)))))
+      (delete-directory parent t))))
+
+(ert-deftest perinf-test-inactive-task-timers-stop-at-exact-boundary ()
+  (let* ((parent (make-temp-file "perinf-inactivity-test-" t))
+         (project (expand-file-name "project" parent))
+         (tasks-file (expand-file-name "data/tasks.org" project))
+         (perinf-current-project project)
+         (perinf-interface-language 'en)
+         (perinf-task-inactivity-timeout 900)
+         captured-message)
+    (unwind-protect
+        (progn
+          (perinf-project-create
+           project "Inactivity test" 'en 'iso 'twenty-four-hour)
+          (with-temp-buffer
+            (insert-file-contents tasks-file)
+            (goto-char (point-max))
+            (insert "\n* TODO Inactive task\n:PROPERTIES:\n"
+                    ":ID: task-inactive\n:PERINF_TYPE: task\n"
+                    ":PERINF_STATUS: active\n"
+                    ":TASK_TIMER_STARTED_AT: 2026-08-17T10:00:00+02:00\n"
+                    ":TASK_LAST_ACTIVITY_AT: 2026-08-17T10:05:00+02:00\n"
+                    ":TASK_WORK_SECONDS: 7\n:END:\n\n"
+                    "* TODO Recent task\n:PROPERTIES:\n"
+                    ":ID: task-recent\n:PERINF_TYPE: task\n"
+                    ":PERINF_STATUS: active\n"
+                    ":TASK_TIMER_STARTED_AT: 2026-08-17T10:20:00+02:00\n"
+                    ":TASK_LAST_ACTIVITY_AT: 2026-08-17T10:25:00+02:00\n"
+                    ":END:\n")
+            (write-region (point-min) (point-max) tasks-file nil 'silent))
+          (perinf-i18n-load-locales)
+          (cl-letf (((symbol-function 'message)
+                     (lambda (format-string &rest args)
+                       (setq captured-message
+                             (apply #'format format-string args)))))
+            (should
+             (equal
+              (perinf-task-stop-inactive-timers
+               (date-to-time "2026-08-17T10:30:00+02:00"))
+              '("Inactive task"))))
+          (should (string-match-p "Inactive task" captured-message))
+          (should (string-match-p "15 minutes" captured-message))
+          (let* ((tasks (perinf-storage-list 'task project))
+                 (inactive
+                  (seq-find
+                   (lambda (task)
+                     (equal (perinf-object-id task) "task-inactive"))
+                   tasks))
+                 (recent
+                  (seq-find
+                   (lambda (task)
+                     (equal (perinf-object-id task) "task-recent"))
+                   tasks)))
+            (should-not
+             (alist-get 'TASK_TIMER_STARTED_AT
+                        (perinf-object-properties inactive)))
+            (should
+             (= (string-to-number
+                 (alist-get 'TASK_WORK_SECONDS
+                            (perinf-object-properties inactive)))
+                1207))
+            (should
+             (alist-get 'TASK_TIMER_STARTED_AT
+                        (perinf-object-properties recent)))))
+      (delete-directory parent t))))
+
 (ert-deftest perinf-test-time-normalization ()
   (should (equal (perinf-time-normalize "14:30" 'twenty-four-hour)
                  "14:30:00"))

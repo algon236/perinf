@@ -15,11 +15,18 @@ transcripts, and human-approved minutes.
 ## Highlights
 
 - controlled task and meeting workflows, including persistent work timers
+- a dedicated people view with editable contacts and reusable groups
 - separate archive sections for completed and cancelled records
 - links from meeting evidence through minutes and decisions to resulting tasks
 - managed audio and document imports with checksums and stable identifiers
 - explicit human review and approval of generated minutes
 - interfaces in English, Danish, French, German, and Spanish
+
+Groups are selection aids rather than references of their own. Selecting a
+group for a task or meeting records its current members as individual, stable
+person references. Later membership changes therefore never rewrite historical
+tasks or meetings. People and groups are archived instead of permanently
+deleted and can be reactivated later.
 
 Transcription and text generation are intentionally kept outside the core.
 Plugins may create artifacts, but PerInf records their provenance and requires

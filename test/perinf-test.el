@@ -966,6 +966,81 @@
                      "+45 12 34 56 78"))))
       (delete-directory parent t))))
 
+(ert-deftest perinf-test-person-groups-expand-to-stable-person-references ()
+  (let* ((parent (make-temp-file "perinf-group-test-" t))
+         (project (expand-file-name "project" parent))
+         (perinf-interface-language 'da))
+    (unwind-protect
+        (progn
+          (perinf-project-create
+           project "Groups" 'da 'day-month-year-dash 'twenty-four-hour)
+          (let* ((anne (perinf-storage-create
+                        'person '((title . "Anne Jensen")) project))
+                 (bo (perinf-storage-create
+                      'person '((title . "Bo Nielsen")) project))
+                 (ids (list (perinf-object-id anne) (perinf-object-id bo)))
+                 (group (perinf-storage-create
+                         'person-group
+                         `((title . "Bestyrelsen") (member-ids . ,ids))
+                         project))
+                 (task (perinf-storage-create
+                        'task '((title . "Læs materialet")) project))
+                 (meeting (perinf-storage-create
+                           'meeting
+                           '((title . "Gruppemøde")
+                             (date . "2026-08-19")
+                             (start-time . "10:00:00"))
+                           project))
+                 (assigned
+                  (perinf-storage-assign-task
+                   (perinf-object-id task)
+                   (perinf-storage-group-member-ids group)
+                   project))
+                 (perinf-current-project (file-name-as-directory project)))
+            (should (equal (perinf-storage-task-assignee-ids assigned) ids))
+            (should-not
+             (alist-get 'ASSIGNEE_ID (perinf-object-properties assigned)))
+            (cl-letf (((symbol-function 'perinf-meeting--select-person)
+                       (lambda () ids))
+                      ((symbol-function 'perinf-meeting--select-role)
+                       (lambda () 'participant))
+                      ((symbol-function 'perinf-core-meetings) #'ignore))
+              (perinf-meeting-add-participant (perinf-object-id meeting)))
+            (should (= 2 (length
+                          (perinf-storage-list-children
+                           (perinf-object-id meeting) 'participants project))))
+            (perinf-storage-update-person
+             (perinf-object-id anne) "Anne Hansen" "anne@example.dk" "1234"
+             project)
+            (should (equal
+                     (perinf-object-title
+                      (car (perinf-storage-list 'person project)))
+                     "Anne Hansen"))
+            (perinf-storage-update-person-group
+             (perinf-object-id group) "Arbejdsgruppen"
+             (list (perinf-object-id anne)) project)
+            (let ((updated-group (car (perinf-storage-list 'person-group project))))
+              (should (equal (perinf-object-title updated-group)
+                             "Arbejdsgruppen"))
+              (should (equal (perinf-storage-group-member-ids updated-group)
+                             (list (perinf-object-id anne)))))
+            ;; The already assigned task keeps its original person references.
+            (should (equal
+                     (perinf-storage-task-assignee-ids
+                      (car (perinf-storage-list 'task project)))
+                     ids))
+            (perinf-storage-set-person-group-status
+             (perinf-object-id group) 'inactive project)
+            (perinf-i18n-load-locales)
+            (with-temp-buffer
+              (perinf-mode)
+              (setq perinf-current-view 'people)
+              (perinf-core--render)
+              (should (string-match-p "Personer og grupper" (buffer-string)))
+              (should (string-match-p "Arbejdsgruppen" (buffer-string)))
+              (should-not (string-match-p "Slet permanent" (buffer-string))))))
+      (delete-directory parent t))))
+
 (ert-deftest perinf-test-decision-round-trip-records-and-search ()
   (let* ((parent (make-temp-file "perinf-decision-test-" t))
          (project (expand-file-name "project" parent))

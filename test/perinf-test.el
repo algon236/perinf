@@ -1,6 +1,24 @@
 ;;; perinf-test.el --- Bootstrap tests for Personal Work and Information System -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026, Niels Søndergaard, Nivaa, Denmark.
+;; Author: Niels Søndergaard, mail: niels<at>algon.dk
+
 ;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
+;; This file is part of Personal Work and Information System.
+;;
+;; Personal Work and Information System is free software: you can redistribute
+;; it and/or modify it under the terms of the GNU General Public License as
+;; published by the Free Software Foundation, either version 3 of the License,
+;; or (at your option) any later version.
+;;
+;; Personal Work and Information System is distributed in the hope that it will
+;; be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+;; Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License along with
+;; this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Code:
 
@@ -393,6 +411,35 @@
             (should
              (alist-get 'TASK_TIMER_STARTED_AT
                         (perinf-object-properties recent)))))
+      (delete-directory parent t))))
+
+(ert-deftest perinf-test-reset-running-task-timer-keeps-task-active ()
+  (let* ((parent (make-temp-file "perinf-timer-reset-test-" t))
+         (project (expand-file-name "project" parent)))
+    (unwind-protect
+        (progn
+          (perinf-project-create
+           project "Timer reset test" 'en 'iso 'twenty-four-hour)
+          (let* ((created
+                  (perinf-storage-create
+                   'task '((title . "Long-running task")) project))
+                 (id (perinf-object-id created)))
+            (perinf-storage-update
+             id '((PERINF_STATUS . active)) project)
+            (perinf-storage-start-task-timer id project)
+            (let* ((tasks-file (expand-file-name "data/tasks.org" project)))
+              (with-temp-buffer
+                (insert-file-contents tasks-file)
+                (org-mode)
+                (should (perinf-storage--find-id id))
+                (org-entry-put nil "TASK_WORK_SECONDS" "123")
+                (perinf-storage--atomic-write-buffer
+                 (current-buffer) tasks-file)))
+            (let* ((reset (perinf-storage-reset-task-timer id project))
+                   (properties (perinf-object-properties reset)))
+              (should (eq (perinf-object-status reset) 'active))
+              (should (equal (alist-get 'TASK_WORK_SECONDS properties) "0"))
+              (should (alist-get 'TASK_TIMER_STARTED_AT properties)))))
       (delete-directory parent t))))
 
 (ert-deftest perinf-test-time-normalization ()

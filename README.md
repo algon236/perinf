@@ -38,6 +38,8 @@ Each active task can have its own work timer, and several task timers may run
 at the same time. PerInf stores both accumulated work time and the start of the
 current interval, so elapsed time survives Emacs restarts and remains available
 after a task is completed or cancelled. Work time is displayed as `H:MM:SS`.
+The **Reset timer** action clears the accumulated time without completing the
+task; if the timer is running, it continues from zero.
 
 An open Emacs buffer or file can be associated with one active task. File paths
 and names of non-file buffers are stored with the task. Once a file has been

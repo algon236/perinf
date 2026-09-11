@@ -1,6 +1,6 @@
 # Personal Work and Information System
 
-PerInf 1.0 is an Org-backed personal information and work-management system
+PerInf 1.0.1 is an Org-backed personal information and work-management system
 for Emacs.
 
 ![Personal Information System](images/perinf.png)
@@ -63,25 +63,74 @@ used as the fallback activity time.
 
 ## Getting started
 
-Add the repository to Emacs' `load-path`, then evaluate:
+For a local source installation under `~/.emacs.d/lisp/perinf/`, run:
 
-```elisp
-(require 'perinf)
+```sh
+make install
 ```
 
-Start PerInf with `M-x perinf`. From the start page, create a new project or
-open an existing one. Projects remain normal, portable Org directories.
+The installer creates missing directories and generates autoloads. It derives
+its destination from Emacs' `user-emacs-directory`; set
+`PERINF_EMACS_DIRECTORY=/path/to/emacs-directory` to override it. Add to init:
+
+```elisp
+(add-to-list 'load-path (expand-file-name "lisp/perinf/" user-emacs-directory))
+(load "perinf-autoloads" nil t)
+```
+
+Start with `M-x perinf`. Create or open a project from the home page.
+Projects remain normal, portable Org directories, separate from installed code.
+The package itself never creates installation directories or modifies load-path.
+The local installer is responsible for placement under `lisp/`.
+
+Danish is the default before a project is opened. Project metadata selects its
+saved language. To keep a Danish UI regardless of a project's language, add:
+
+```elisp
+(setq perinf-interface-language 'da
+      perinf-interface-language-override 'da)
+```
+
+Set the override to nil to follow project metadata. English, French, German and
+Spanish remain available. Newly translated validation errors have Danish and
+English versions; the other languages use English fallback for these messages.
+Canonical Org properties, IDs and stored content are not translated.
+
+For development, adding this repository root to `load-path` and requiring
+`perinf` is sufficient. All runtime Lisp modules are in the root directory.
 
 ## Development and packaging
 
-```text
+```sh
 make test
 make compile
 make package
 ```
 
-`make package` creates `dist/perinf-1.0.0.tar`, which can be installed with
-`M-x package-install-file`.
+Compilation uses a temporary copy and treats compiler warnings as errors.
+`make package` creates `dist/perinf-1.0.1.tar`, installable with
+`M-x package-install-file`. Normal package.el installations use
+`package-user-dir` (usually `~/.emacs.d/elpa/`), independently of the local
+source installer. Never install both versions on the same load-path.
+
+`recipes/perinf` is a proposed MELPA recipe for the dedicated upstream
+repository. The source changes must be published there before a MELPA
+submission; inclusion is subject to MELPA review.
+
+## Org integration and boundaries
+
+Emacs 29.1 and Org 9.6 are the declared minimum dependencies. Tests for this
+release were run with Emacs 32.0.50; Emacs 31 was not independently exercised.
+PerInf does not require doct or org-roam and does not replace capture templates
+or configure the org-roam database. Internal Org parsing suppresses user mode
+hooks and uses the canonical TODO/DONE keywords. Opening a real Org file still
+uses the user's normal Org setup.
+
+Writes refuse to overwrite a file visited in a buffer with unsaved changes.
+Existing file permission bits are preserved. Individual file replacements are
+atomic, but operations touching several files are not database transactions;
+concurrent writers in separate Emacs processes are not coordinated.
+The existing `localized-long` project setting accepts ISO date input.
 
 ## License
 

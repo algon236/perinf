@@ -34,6 +34,20 @@ human approval before minutes become final.
 
 ## Work timers and recorded activity
 
+Enable automatic activity tracking and inactivity checks explicitly:
+
+```elisp
+(perinf-task-activity-mode 1)
+```
+
+With a source checkout, first load `perinf` or the generated autoloads.
+You can also use `M-x perinf-task-activity-mode`.
+Disabling the mode removes its hooks and periodic check. Saved buffer
+associations and running task timers remain unchanged; those timers must
+then be stopped manually. Enabling again restores associations in open
+buffers and resumes checks using the saved last-activity timestamps.
+
+
 Each active task can have its own work timer, and several task timers may run
 at the same time. PerInf stores both accumulated work time and the start of the
 current interval, so elapsed time survives Emacs restarts and remains available

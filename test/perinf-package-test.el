@@ -130,3 +130,57 @@
                            (perinf-storage--datetime "2026-09-11" "12:34:56")))
   (should-error (perinf-storage--datetime "2026-02-30" "12:00:00"))
   (should-error (perinf-storage--datetime "2026-09-11" "25:00:00")))
+
+(ert-deftest perinf-package-activity-mode-lifecycle ()
+  (let ((perinf-current-project nil)
+        first-timer second-timer)
+    (unwind-protect
+        (progn
+          (perinf-task-activity-mode 1)
+          (setq first-timer perinf-task-inactivity-check-timer)
+          (should (memq first-timer timer-list))
+          (perinf-task-activity-mode 1)
+          (setq second-timer perinf-task-inactivity-check-timer)
+          (should-not (memq first-timer timer-list))
+          (should (memq second-timer timer-list))
+          (dolist (entry '((find-file-hook
+                            . perinf-task-auto-associate-current-buffer)
+                           (after-change-major-mode-hook
+                            . perinf-task-auto-associate-current-buffer)
+                           (post-command-hook
+                            . perinf-task-record-buffer-activity)))
+            (should (= 1 (cl-count (cdr entry) (symbol-value (car entry))))))
+          (with-temp-buffer
+            (setq-local perinf-task-activity-task-id "saved-task")
+            (perinf-task-activity-mode -1)
+            (should (equal perinf-task-activity-task-id "saved-task")))
+          (should-not perinf-task-activity-mode)
+          (should-not perinf-task-inactivity-check-timer)
+          (should-not (memq second-timer timer-list))
+          (should-not (memq #'perinf-task-record-buffer-activity
+                            post-command-hook))
+          (should-not (memq #'perinf-task-auto-associate-current-buffer
+                            find-file-hook))
+          (should-not (memq #'perinf-task-auto-associate-current-buffer
+                            after-change-major-mode-hook))
+          (perinf-task-activity-mode -1)
+          (perinf-task-activity-mode 1)
+          (setq second-timer perinf-task-inactivity-check-timer)
+          (perinf-task-unload-function)
+          (should-not perinf-task-activity-mode)
+          (should-not perinf-task-inactivity-check-timer)
+          (should-not (memq second-timer timer-list)))
+      (perinf-task-activity-mode -1))))
+
+(ert-deftest perinf-package-activity-mode-restores-open-buffers ()
+  (let ((perinf-current-project "/test-project/")
+        (buffer (generate-new-buffer "perinf-mode-test")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'perinf-task--matching-resource-task-ids)
+                   (lambda (_) '("saved-task"))))
+          (perinf-task-activity-mode 1)
+          (with-current-buffer buffer
+            (should (equal perinf-task-activity-task-id "saved-task"))
+            (should (equal perinf-task-activity-project "/test-project/"))))
+      (perinf-task-activity-mode -1)
+      (kill-buffer buffer))))

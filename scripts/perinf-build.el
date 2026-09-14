@@ -54,11 +54,11 @@
 
 (defun perinf-build-package ()
   "Build a source archive in a clean temporary staging directory."
-  (let* ((version (with-temp-buffer
+  (let* ((descriptor (with-temp-buffer
                     (insert-file-contents
                      (expand-file-name "perinf.el" perinf-build-root))
-                    (package-version-join
-                     (package-desc-version (package-buffer-info)))))
+                    (package-buffer-info)))
+         (version (package-version-join (package-desc-version descriptor)))
          (name (concat "perinf-" version))
          (staging (make-temp-file "perinf-package-" t))
          (target (expand-file-name name staging))
@@ -69,9 +69,28 @@
           (make-directory target t)
           (make-directory dist t)
           (dolist (file (append (perinf-build-files)
-                               (list (expand-file-name "perinf-pkg.el" perinf-build-root)
-                                     (expand-file-name "LICENSE" perinf-build-root))))
+                               (list (expand-file-name "LICENSE" perinf-build-root))))
             (copy-file file (expand-file-name (file-name-nondirectory file) target)))
+          (with-temp-file (expand-file-name "perinf-pkg.el" target)
+            (insert ";;; Generated from perinf.el; do not edit.\n;; -*- no-byte-compile: t; lexical-binding: t; -*-\n")
+            (prin1
+             (append
+              (list 'define-package
+                    (symbol-name (package-desc-name descriptor))
+                    version
+                    (package-desc-summary descriptor)
+                    (list 'quote
+                          (mapcar
+                           (lambda (requirement)
+                             (list (car requirement)
+                                   (package-version-join (cadr requirement))))
+                           (package-desc-reqs descriptor))))
+              (apply #'append
+                     (mapcar (lambda (extra)
+                               (list (car extra) (list 'quote (cdr extra))))
+                             (package-desc-extras descriptor))))
+             (current-buffer))
+            (insert "\n"))
           (unless (zerop (call-process
                          "tar" nil "*perinf-package-build*" nil "-C" staging "-cf"
                          (expand-file-name (concat name ".tar") dist) name))

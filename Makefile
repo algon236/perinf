@@ -3,6 +3,7 @@ EMACS ?= emacs
 .PHONY: test compile package install
 
 test:
+	$(EMACS) -Q --batch -L . -l scripts/perinf-load-smoke.el
 	$(EMACS) -Q --batch -L . -l test/perinf-test.el -l test/perinf-package-test.el -f ert-run-tests-batch-and-exit
 
 compile:

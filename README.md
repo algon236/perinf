@@ -150,3 +150,17 @@ The existing `localized-long` project setting accepts ISO date input.
 
 PerInf is free software licensed under GNU GPL version 3 or any later version.
 See [LICENSE](LICENSE).
+
+## Memos
+
+Choose Memo on the PerInf home page, select a date (optionally including a
+time), write the note, and finish with `C-c C-c`
+(or cancel with `C-c C-k`). Show memos opens the current project’s
+`data/memos.org`. Each entry stores `CATEGORY: Husk`, an ID, and a
+creation timestamp, plus a standard Org SCHEDULED date. The category remains the same in every interface language
+so later statistics can group entries reliably. No deadline or task status is
+required. `M-x perinf-capture-memo` opens the same capture flow.
+
+Open a memo from the dashboard and use **Close and save** above the note to
+mark it done, save it, and close its window. The note and category remain in
+the Org file for later statistics.

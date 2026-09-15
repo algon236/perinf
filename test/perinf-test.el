@@ -1584,3 +1584,100 @@
                     ((file-in-directory-p file parent)))
           (kill-buffer buffer)))
       (delete-directory parent t))))
+
+(ert-deftest perinf-test-meeting-date-only-create-and-edit ()
+  "Create a meeting without times, add them later, and remove them again."
+  (let* ((parent (make-temp-file "perinf-date-only-" t))
+         (project (expand-file-name "project" parent))
+         (perinf-current-project project))
+    (unwind-protect
+        (save-window-excursion
+          (perinf-project-create project "Date only" 'da 'iso 'twenty-four-hour)
+          (let* ((answers (list "Date only meeting" "2026-09-15" "" "  " "Room"))
+                 (meeting
+                  (cl-letf (((symbol-function 'read-string)
+                             (lambda (&rest _) (pop answers))))
+                    (perinf-meeting-create)))
+                 (id (perinf-object-id meeting)))
+            (should (equal (alist-get 'START_AT (perinf-object-properties meeting))
+                           "2026-09-15"))
+            (should-not (alist-get 'FINISH_AT (perinf-object-properties meeting)))
+            (dolist (times '(("" "") ("14:00" "15:00") ("" "")))
+              (let ((answers (append (list "Date only meeting" "2026-09-15")
+                                     times (list "Room"))))
+                (cl-letf (((symbol-function 'read-string)
+                           (lambda (&rest _) (pop answers))))
+                  (perinf-meeting-edit id)))
+              (let* ((saved (car (perinf-storage-list 'meeting project)))
+                     (properties (perinf-object-properties saved)))
+                (should (equal (perinf-object-id saved) id))
+                (if (equal (car times) "")
+                    (progn
+                      (should (equal (alist-get 'START_AT properties) "2026-09-15"))
+                      (should-not (alist-get 'FINISH_AT properties)))
+                  (should (string-prefix-p "2026-09-15T14:00:00"
+                                           (alist-get 'START_AT properties)))
+                  (should (string-prefix-p "2026-09-15T15:00:00"
+                                           (alist-get 'FINISH_AT properties)))))
+              (perinf-core-meetings))))
+      (dolist (buffer (buffer-list))
+        (when-let* ((file (buffer-file-name buffer)))
+          (when (file-in-directory-p file parent)
+            (with-current-buffer buffer (set-buffer-modified-p nil))
+            (kill-buffer buffer))))
+      (delete-directory parent t))))
+
+(ert-deftest perinf-test-meeting-date-only-validation ()
+  "Reject invalid input without creating or changing a meeting file."
+  (let* ((parent (make-temp-file "perinf-date-validation-" t))
+         (project (expand-file-name "project" parent)))
+    (unwind-protect
+        (progn
+          (perinf-project-create project "Validation" 'da 'iso 'twenty-four-hour)
+          (dolist (data '(((date . "2026-02-30"))
+                          ((date . ""))
+                          ((date . nil))
+                          ((date . "2026-09-15") (start-time . "25:00:00"))
+                          ((date . "2026-09-15") (finish-time . "25:00:00"))
+                          ((date . "2026-09-15") (start-time . "15:00:00")
+                           (finish-time . "14:00:00"))))
+            (should-error
+             (perinf-storage-create 'meeting (cons '(title . "Invalid") data) project))
+            (should-not (perinf-storage-list 'meeting project)))
+          (let* ((meeting (perinf-storage-create
+                           'meeting '((title . "Valid") (date . "2026-09-15"))
+                           project))
+                 (file (perinf-object-file meeting))
+                 (before (with-temp-buffer
+                           (insert-file-contents file) (buffer-string))))
+            (should-error
+             (perinf-storage-update-meeting
+              (perinf-object-id meeting)
+              '((title . "Invalid") (date . "2026-02-30")) project))
+            (should (equal before (with-temp-buffer
+                                    (insert-file-contents file) (buffer-string))))))
+      (delete-directory parent t))))
+
+(ert-deftest perinf-test-meeting-one-known-time ()
+  "Preserve an independently supplied start or finish time."
+  (let* ((parent (make-temp-file "perinf-one-time-" t))
+         (project (expand-file-name "project" parent)))
+    (unwind-protect
+        (progn
+          (perinf-project-create project "One time" 'da 'iso 'twenty-four-hour)
+          (dolist (time '((start-time . "14:00:00") (finish-time . "15:00:00")))
+            (let* ((meeting (perinf-storage-create
+                             'meeting (list '(title . "One time")
+                                            '(date . "2026-09-15") time) project))
+                   (saved (perinf-storage--meeting-by-id
+                           (perinf-object-id meeting) project))
+                   (properties (perinf-object-properties saved)))
+              (if (eq (car time) 'start-time)
+                  (progn
+                    (should (string-prefix-p "2026-09-15T14:00:00"
+                                             (alist-get 'START_AT properties)))
+                    (should-not (alist-get 'FINISH_AT properties)))
+                (should (equal (alist-get 'START_AT properties) "2026-09-15"))
+                (should (string-prefix-p "2026-09-15T15:00:00"
+                                         (alist-get 'FINISH_AT properties)))))))
+      (delete-directory parent t))))

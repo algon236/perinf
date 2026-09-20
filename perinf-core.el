@@ -28,6 +28,7 @@
 ;;; Code:
 
 (require 'seq)
+(require 'cl-lib)
 (require 'subr-x)
 
 (require 'button)
@@ -46,7 +47,7 @@
 (require 'perinf-properties)
 (require 'perinf-statuses)
 
-(defconst perinf-version "1.0.1"
+(defconst perinf-version "1.0.2"
   "Current Personal Work and Information System application version.")
 
 (defcustom perinf-last-project-directory nil
@@ -100,6 +101,100 @@ part of the persistent shared Org data."
     (setq perinf-core--main-buffer
           (get-buffer-create (format "*%s*" (perinf-i18n 'app.name)))))
   perinf-core--main-buffer)
+
+(defvar-local perinf-core--clock-projects nil
+  "Projects whose clocks belong to this UI buffer.")
+
+(defvar-local perinf-core--clock-timer nil
+  "Five-second display timer belonging to this UI buffer.")
+
+(defvar-local perinf-core--clock-start nil
+  "Marker at the beginning of the clock display.")
+
+(defvar-local perinf-core--clock-end nil
+  "Marker at the end of the clock display.")
+
+(defun perinf-core--clock-label (project)
+  "Return a compact title for PROJECT."
+  (let* ((title (or (alist-get 'PROJECT_TITLE
+                               (perinf-storage-read-project project))
+                    (file-name-nondirectory (directory-file-name project))))
+         (words (split-string title "[^[:alnum:]]+" t)))
+    (if (> (length words) 1)
+        (upcase (mapconcat (lambda (word) (substring word 0 1))
+                           (seq-take words 6) ""))
+      (truncate-string-to-width title 8 nil nil "…"))))
+
+(defun perinf-core--clock-text ()
+  "Build one boxed line per running clock owned by this buffer."
+  (let ((now (current-time)) lines)
+    (dolist (project perinf-core--clock-projects)
+      (let ((label (perinf-core--clock-label project)))
+        (dolist (task (perinf-storage-list 'task project))
+          (when (alist-get 'TASK_TIMER_STARTED_AT
+                          (perinf-object-properties task))
+            (push
+             (concat
+              (propertize
+               (format " %s · %s · %s " label
+                       (truncate-string-to-width
+                        (replace-regexp-in-string
+                         "[\n\r\t]+" " " (perinf-object-title task))
+                        32 nil nil "…")
+                       (perinf-task-format-work-time
+                        (perinf-task-total-work-seconds task now)))
+               'face '(:box (:line-width 1 :style released-button))
+               'help-echo (concat project " — " (perinf-object-title task)))
+              "\n")
+             lines)))))
+    (if lines (concat (apply #'concat (nreverse lines)) "\n") "")))
+
+(defun perinf-core--update-clocks (buffer)
+  "Update BUFFER's clock lines without redrawing its current view."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (when (and (markerp perinf-core--clock-start)
+                 (marker-position perinf-core--clock-start)
+                 (marker-position perinf-core--clock-end))
+        (let ((text (perinf-core--clock-text))
+              (inhibit-read-only t))
+          (unless (equal text (buffer-substring
+                               perinf-core--clock-start perinf-core--clock-end))
+            (save-excursion
+              (goto-char perinf-core--clock-start)
+              (delete-region perinf-core--clock-start perinf-core--clock-end)
+              (insert text)
+              (set-marker perinf-core--clock-end (point)))))))))
+
+(defun perinf-core--stop-buffer-clocks ()
+  "Save and stop this buffer's clocks before allowing it to be killed.
+Hidden buffers keep running.  A storage error prevents deletion."
+  (let ((now (current-time)))
+    (dolist (project perinf-core--clock-projects)
+      (dolist (task (perinf-storage-list 'task project))
+        (when (alist-get 'TASK_TIMER_STARTED_AT (perinf-object-properties task))
+          (perinf-storage-stop-task-timer (perinf-object-id task) project now)))))
+  t)
+
+(defun perinf-core--cancel-clock-display ()
+  "Cancel the display timer when this buffer is killed."
+  (when (timerp perinf-core--clock-timer)
+    (cancel-timer perinf-core--clock-timer))
+  (setq perinf-core--clock-timer nil))
+
+(defun perinf-core--insert-clocks ()
+  "Insert clock lines and attach their lifecycle to the current buffer."
+  (when perinf-current-project
+    (cl-pushnew (file-name-as-directory (expand-file-name perinf-current-project))
+                perinf-core--clock-projects :test #'equal))
+  (setq perinf-core--clock-start (copy-marker (point)))
+  (insert (perinf-core--clock-text))
+  (setq perinf-core--clock-end (copy-marker (point)))
+  (add-hook 'kill-buffer-query-functions #'perinf-core--stop-buffer-clocks nil t)
+  (add-hook 'kill-buffer-hook #'perinf-core--cancel-clock-display nil t)
+  (unless (timerp perinf-core--clock-timer)
+    (setq perinf-core--clock-timer
+          (run-with-timer 5 5 #'perinf-core--update-clocks (current-buffer)))))
 
 (defun perinf-core--insert-button (label action &rest properties)
   "Insert a button with LABEL and ACTION using PROPERTIES."
@@ -2071,6 +2166,7 @@ Keyboard button actions run COMMAND immediately."
                     (perinf-i18n 'home.version)
                     perinf-version))
     (perinf-core--insert-navigation)
+    (perinf-core--insert-clocks)
     (condition-case error-data
         (pcase perinf-current-view
           ('home (perinf-core--render-home))
@@ -2123,7 +2219,8 @@ With PROJECT-DIRECTORY, display metadata from that PerInf project."
   (perinf-core--load-state)
   (let ((candidate (or project-directory
                        perinf-current-project
-                       perinf-last-project-directory)))
+                       perinf-last-project-directory
+                       perinf-default-project-directory)))
     (when candidate
       (if (perinf-project-p candidate)
           (perinf-core--activate-project candidate)
@@ -2131,7 +2228,8 @@ With PROJECT-DIRECTORY, display metadata from that PerInf project."
           (perinf-i18n-user-error "Not a Personal Work and Information System project: %s" candidate)))))
   (let ((buffer (perinf-core--buffer)))
     (with-current-buffer buffer
-      (perinf-mode)
+      (unless (derived-mode-p 'perinf-mode)
+        (perinf-mode))
       (setq perinf-current-view 'home)
       (perinf-core--render))
     (pop-to-buffer buffer)))
@@ -2224,7 +2322,7 @@ Use DATE-FORMAT and TIME-FORMAT for regional input and display."
    (let* ((directory
            (read-directory-name
             (perinf-i18n 'project.create-directory-prompt)
-            (expand-file-name "Personal Work and Information System" (or (getenv "HOME") default-directory))
+            perinf-default-project-directory
             nil nil))
           (title (read-string (perinf-i18n 'project.title-prompt)))
           (language
@@ -2262,7 +2360,7 @@ Use DATE-FORMAT and TIME-FORMAT for regional input and display."
    (list
     (read-directory-name
      (perinf-i18n 'project.open-directory-prompt)
-     (or perinf-last-project-directory default-directory)
+     (or perinf-last-project-directory perinf-default-project-directory)
      nil t)))
   (perinf-i18n-load-locales)
   (perinf-core--activate-project directory)

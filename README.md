@@ -1,11 +1,7 @@
 # Personal Work and Information System
 
-PerInf 1.0.1 is an Org-backed personal information and work-management system
+PerInf 1.0.2 is an Org-backed personal information and work-management system
 for Emacs.
-
-![Personal Information System](images/perinf.png)
-
-*Personal Information System – shown here in the Danish version*
 
 It can be used as an alternative to, or a supplement for, Org Agenda. It keeps
 ordinary Org files as the source of truth while providing
@@ -33,6 +29,14 @@ Plugins may create artifacts, but PerInf records their provenance and requires
 human approval before minutes become final.
 
 ## Work timers and recorded activity
+
+Each running clock appears as a boxed line in the PerInf main buffer, with a
+project abbreviation, task title, and total recorded time. The lines update every
+five seconds, including while the buffer is hidden. Killing that buffer stops its
+clocks and saves their elapsed time; hiding it with `q` does not. PerInf reuses one
+main buffer: when switching projects, clocks from previously displayed projects
+remain attached to that buffer until stopped or the buffer is killed. The normal
+inactivity timeout still applies.
 
 Enable automatic activity tracking and inactivity checks explicitly:
 
@@ -74,6 +78,21 @@ timers. The work interval ends exactly at the 15-minute boundary, and Emacs
 shows a minibuffer message naming the task that was stopped. For a running
 timer created before activity tracking was available, the timer start time is
 used as the fallback activity time.
+
+## Portable distribution
+
+The default project directory is `~/org/agenda/`. An explicitly selected project
+or saved last project takes precedence. Existing project data is never included
+in the distribution. See `README.da.md` for the Danish installation guide.
+
+Install the source with `python3 install.py` (refuses an existing destination),
+or install `dist/perinf-1.0.2.tar` with `M-x package-install-file`.
+The ZIP includes source, documentation, tests and build tools.
+
+For a fresh project, create `~/org` first, run `M-x perinf-create-project`, and
+accept `~/org/agenda/`. Project creation refuses an existing directory; an existing
+agenda directory must be preserved and handled separately. Installing this
+package does not migrate existing personal data automatically.
 
 ## Getting started
 
@@ -122,7 +141,7 @@ make package
 ```
 
 Compilation uses a temporary copy and treats compiler warnings as errors.
-`make package` creates `dist/perinf-1.0.1.tar`, installable with
+`make package` creates `dist/perinf-1.0.2.tar`, installable with
 `M-x package-install-file`. Normal package.el installations use
 `package-user-dir` (usually `~/.emacs.d/elpa/`), independently of the local
 source installer. Never install both versions on the same load-path.

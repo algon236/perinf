@@ -34,6 +34,13 @@
 (require 'perinf-project-schema)
 (require 'perinf-i18n)
 
+(defcustom perinf-default-project-directory
+  (expand-file-name "~/org/agenda/")
+  "Default directory for the personal agenda project.
+Used when opening without a selected project and when creating a project."
+  :type 'directory
+  :group 'perinf)
+
 (defvar perinf-current-project nil
   "Directory of the current Personal Work and Information System project, or nil.")
 

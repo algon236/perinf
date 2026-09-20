@@ -184,3 +184,36 @@
             (should (equal perinf-task-activity-project "/test-project/"))))
       (perinf-task-activity-mode -1)
       (kill-buffer buffer))))
+
+(ert-deftest perinf-package-default-agenda-project-is-opened ()
+  (let* ((parent (make-temp-file "perinf-default-" t))
+         (perinf-default-project-directory (expand-file-name "agenda/" parent))
+         (perinf-state-file (expand-file-name "state.el" parent))
+         (perinf-current-project nil)
+         (perinf-last-project-directory nil)
+         (perinf-core--main-buffer nil))
+    (unwind-protect
+        (progn
+          (perinf-project-create perinf-default-project-directory "Agenda" 'en 'iso 'twenty-four-hour)
+          (save-window-excursion (perinf-core-open))
+          (should (equal perinf-current-project perinf-default-project-directory))
+          (should (equal (perinf-memo--file)
+                         (expand-file-name "data/memos.org" perinf-default-project-directory))))
+      (when (buffer-live-p perinf-core--main-buffer) (kill-buffer perinf-core--main-buffer))
+      (delete-directory parent t))))
+
+(ert-deftest perinf-package-explicit-project-overrides-default ()
+  (let* ((parent (make-temp-file "perinf-explicit-" t))
+         (perinf-default-project-directory (expand-file-name "agenda/" parent))
+         (other (expand-file-name "other/" parent))
+         (perinf-state-file (expand-file-name "state.el" parent))
+         (perinf-current-project nil)
+         (perinf-last-project-directory nil)
+         (perinf-core--main-buffer nil))
+    (unwind-protect
+        (progn
+          (perinf-project-create other "Other" 'en 'iso 'twenty-four-hour)
+          (save-window-excursion (perinf-core-open other))
+          (should (equal perinf-current-project other)))
+      (when (buffer-live-p perinf-core--main-buffer) (kill-buffer perinf-core--main-buffer))
+      (delete-directory parent t))))

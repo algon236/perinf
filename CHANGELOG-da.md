@@ -1,3 +1,11 @@
+# 1.0.2 — 20. september 2026
+
+- Standardprojektmappe: `~/org/agenda/`.
+- Åbn standardprojektet, når intet aktuelt eller tidligere projekt er valgt.
+- Brug samme standard ved oprettelse og valg af projekt.
+- Selvstændig installationspakke med ZIP, Emacs TAR og kontrolsummer.
+- Bevar seneste lokale forbedringer af projektbundne ure på startsiden.
+
 # PerInf 1.0.1 — ændringer og kontrol
 
 Udført 11. september 2026.

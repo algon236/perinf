@@ -230,6 +230,7 @@
    (minutes.submitted-by-prompt . "Enviada por: ")
    (minutes.title . "Acta")
    (minutes.tasks . "Tareas de esta acta")
+   (navigation.statistics . "Estadísticas")
    (navigation.administration . "Administración")
    (navigation.home . "Inicio")
    (navigation.meetings . "Reuniones")

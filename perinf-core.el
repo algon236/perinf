@@ -43,6 +43,7 @@
 (require 'perinf-meeting)
 (require 'perinf-person)
 (require 'perinf-memo)
+(require 'perinf-statistics)
 (require 'perinf-object-types)
 (require 'perinf-properties)
 (require 'perinf-statuses)
@@ -230,6 +231,7 @@ Keyboard button actions run COMMAND immediately."
                    (meetings . perinf-core-meetings)
                    (people . perinf-core-people)
                    (records . perinf-core-records)
+                   (statistics . perinf-statistics)
                    (administration . perinf-core-administration)))
     (perinf-core--insert-button
      (perinf-i18n (intern (format "navigation.%s" (car entry))))

@@ -230,6 +230,7 @@
    (minutes.submitted-by-prompt . "Eingereicht von: ")
    (minutes.title . "Protokoll")
    (minutes.tasks . "Aufgaben aus diesem Protokoll")
+   (navigation.statistics . "Statistik")
    (navigation.administration . "Administration")
    (navigation.home . "Start")
    (navigation.meetings . "Sitzungen")

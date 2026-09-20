@@ -28,6 +28,29 @@ Transcription and text generation are intentionally kept outside the core.
 Plugins may create artifacts, but PerInf records their provenance and requires
 human approval before minutes become final.
 
+## Saved statistics reports
+
+Choose **Statistics** or run `M-x perinf-statistics`. The first opening saves
+a report for the current year; subsequent openings display the latest saved
+report. **Ny rapport** saves a new report, **Skift år** selects a year, and
+**Gamle rapporter** opens an unchanged earlier report. Report text and these
+controls currently use Danish.
+
+Each project stores immutable `report.org` and `snapshot.json` pairs below
+`statistics/YEAR/unique-report/`. Include this directory in private backups,
+not in the public package repository. Stock counts compare with the previous
+report and the last available measurement before January 1, with actual dates
+shown. Missing baselines remain unavailable. On the first run of a new year,
+the pre-year measurement also serves as the previous report. Year activity
+uses creation, closure and scheduled meeting dates, with monthly breakdowns.
+
+Selecting a historical year without a saved report reconstructs activity from
+surviving records and explicitly omits historical stock counts. Corrections,
+deletions and backfills may affect new calculations, never saved reports.
+Timer totals are not treated as monthly work logs. Unsaved source buffers and
+corrupt report archives prevent creation rather than silently producing a
+misleading comparison. Nothing runs automatically in the background.
+
 ## Work timers and recorded activity
 
 Each running clock appears as a boxed line in the PerInf main buffer, with a

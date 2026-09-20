@@ -230,6 +230,7 @@
    (minutes.submitted-by-prompt . "Soumis par : ")
    (minutes.title . "Procès-verbal")
    (minutes.tasks . "Tâches issues de ce procès-verbal")
+   (navigation.statistics . "Statistiques")
    (navigation.administration . "Administration")
    (navigation.home . "Accueil")
    (navigation.meetings . "Réunions")

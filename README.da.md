@@ -37,6 +37,35 @@ python3 install.py --target "$HOME/.config/nxs-emacs/lisp/perinf"
 
 Læg derefter ovenstående Lisp i den konfigurations `var/private.el`.
 
+## Statistik og gemte rapporter
+
+Vælg **Statistik** i PerInf eller kør `M-x perinf-statistics`. Første åbning
+gemmer en rapport for indeværende år; senere åbninger viser den seneste gemte
+rapport. **Ny rapport** læser de aktuelle data og gemmer en ny rapport.
+**Skift år** vælger et andet år, og **Gamle rapporter** åbner en tidligere
+rapport fra det valgte år uden at ændre den.
+
+Rapporterne indeholder status, årets aktivitet, månedsfordeling og datakontrol.
+Status sammenlignes med sidste rapport og den seneste måling før årsskiftet.
+Måledatoerne vises altid: uden et tidligere målepunkt vises ingen opdigtet
+ændring. Ved første rapport i et nyt år bruges den sidste måling før årsskiftet
+også som sidste rapport. Årets aktivitet starter derimod ved 1. januar.
+
+Hver rapport gemmes i projektets `statistics/ÅR/unik-rapport/`, med
+`report.org` til læsning og `snapshot.json` til sammenligning. En ny kørsel
+overskriver aldrig gamle rapporter. Tag denne mappe med i din private backup.
+Rapporter og personlige projektdata skal ikke med i programmets Git-repository.
+
+Et tidligere år uden gemte rapporter kan genberegnes fra de bevarede poster,
+men vises tydeligt som en historisk aktivitetsopgørelse uden historisk status.
+Sletninger, rettelser og efterregistrering kan ændre en ny beregning; gamle
+rapporter bevarer deres oprindelige tal. Timernes samlede tællere bruges ikke
+til at påstå månedligt tidsforbrug. Statistikrapport og betjeningsknapper er
+foreløbig på dansk. Der er ingen automatisk baggrundskørsel.
+
+Hvis en kildefil har ugemte ændringer, skal den gemmes før en ny rapport.
+Et beskadiget rapportarkiv meldes som fejl frem for at blive ignoreret.
+
 ## Standardprojekt og filstruktur
 
 Standardmappen er `~/org/agenda/`. Et aktuelt projekt eller et tidligere valgt

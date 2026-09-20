@@ -230,6 +230,7 @@
    (minutes.submitted-by-prompt . "Indsendt af: ")
    (minutes.title . "Referat")
    (minutes.tasks . "Opgaver fra dette referat")
+   (navigation.statistics . "Statistik")
    (navigation.administration . "Administration")
    (navigation.home . "Start")
    (navigation.meetings . "Møder")

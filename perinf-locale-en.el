@@ -230,6 +230,7 @@
    (minutes.submitted-by-prompt . "Submitted by: ")
    (minutes.title . "Minutes")
    (minutes.tasks . "Tasks from these minutes")
+   (navigation.statistics . "Statistics")
    (navigation.administration . "Administration")
    (navigation.home . "Home")
    (navigation.meetings . "Meetings")

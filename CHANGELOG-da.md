@@ -1,3 +1,11 @@
+# Ikke udgivet — statistik
+
+- Permanent Statistik-menu med årsvælger, nye rapporter og rapportarkiv.
+- Gemte Org-rapporter og JSON-øjebliksbilleder pr. projekt og år.
+- Sammenligning med sidste rapport og seneste måling før årsskiftet.
+- Årsaktivitet og månedsfordeling med tydelige begrænsninger for historiske data.
+- Datakontrol og beskyttelse mod ugemte kildefiler og beskadiget rapportarkiv.
+
 # 1.0.2 — 20. september 2026
 
 - Standardprojektmappe: `~/org/agenda/`.

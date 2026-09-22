@@ -309,6 +309,7 @@ Refuse unsaved source buffers rather than silently measuring older data."
                          ("Skift år" . perinf-statistics-select-year)
                          ("Gamle rapporter" . perinf-statistics-history)))
           (insert-text-button (car entry) 'follow-link t
+                              'help-echo "Klik med venstre museknap, eller tryk RET for at aktivere knappen"
                               'action (lambda (_button)
                                         (perinf-core--call-interactively-from-button (cdr entry))))
           (insert "    "))
@@ -341,7 +342,9 @@ Refuse unsaved source buffers rather than silently measuring older data."
   "Save and display a new immutable report for the selected year."
   (interactive)
   (let ((project perinf-statistics--project) (year perinf-statistics--year))
-    (perinf-statistics--show project year (perinf-statistics--save project year))))
+    (perinf-statistics--show project year (perinf-statistics--save project year))
+    (message "Ny statistik for %d beregnet og gemt kl. %s"
+             year (format-time-string "%H:%M:%S"))))
 
 (defun perinf-statistics-select-year ()
   "Select a year, including a year without saved reports."

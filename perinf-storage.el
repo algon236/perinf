@@ -1047,6 +1047,9 @@ Signal an error when tasks or meetings still refer to the person."
                     :properties
                     `((START_AT . ,(org-entry-get nil "START_AT"))
                       (FINISH_AT . ,(org-entry-get nil "FINISH_AT"))
+                      (MEETING_DURATION_SECONDS . ,(org-entry-get nil "MEETING_DURATION_SECONDS"))
+                      (MEETING_EXTRA_SECONDS . ,(org-entry-get nil "MEETING_EXTRA_SECONDS"))
+                      (MEETING_TIMER_STARTED_AT . ,(org-entry-get nil "MEETING_TIMER_STARTED_AT"))
                       (LOCATION . ,(org-entry-get nil "LOCATION"))
                       (ACTUAL_START_AT
                        . ,(org-entry-get nil "ACTUAL_START_AT"))
@@ -1961,6 +1964,43 @@ Use PROJECT-DIRECTORY as the project root."
          (equal (perinf-object-id meeting) meeting-id))
        (perinf-storage-list 'meeting project))
       (signal 'perinf-object-not-found (list meeting-id))))
+
+(defun perinf-storage-set-meeting-time (id action &optional value project now)
+  "Apply ACTION to meeting ID in PROJECT at NOW.
+ACTION is duration (VALUE seconds or nil for planned), start, or stop."
+  (unless project (error "No project directory supplied"))
+  (let* ((meeting (perinf-storage--meeting-by-id id project))
+         (file (perinf-object-file meeting))
+         (now (or now (current-time))))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (perinf-storage--org-mode)
+      (unless (perinf-storage--find-id id)
+        (signal 'perinf-object-not-found (list id)))
+      (let ((started (org-entry-get nil "MEETING_TIMER_STARTED_AT")))
+        (pcase action
+          ('duration
+           (unless (or (null value) (and (integerp value) (>= value 0)))
+             (user-error "Duration must be a non-negative whole number"))
+           (if value
+               (org-entry-put nil "MEETING_DURATION_SECONDS" (number-to-string value))
+             (org-entry-delete nil "MEETING_DURATION_SECONDS")))
+          ('start
+           (unless started
+             (org-entry-put nil "MEETING_TIMER_STARTED_AT"
+                            (format-time-string "%Y-%m-%dT%H:%M:%S%z" now))))
+          ('stop
+           (when started
+             (org-entry-put
+              nil "MEETING_EXTRA_SECONDS"
+              (number-to-string
+               (+ (string-to-number (or (org-entry-get nil "MEETING_EXTRA_SECONDS") "0"))
+                  (max 0 (truncate (float-time (time-subtract now (date-to-time started))))))))
+             (org-entry-delete nil "MEETING_TIMER_STARTED_AT")))
+          (_ (error "Unknown meeting time action: %s" action))))
+      (org-entry-put nil "MODIFIED_AT" (perinf-storage--iso-now))
+      (perinf-storage--atomic-write-buffer (current-buffer) file))
+    (perinf-storage--meeting-by-id id project)))
 
 (defun perinf-storage-set-meeting-status
     (meeting-id new-status &optional project-directory)

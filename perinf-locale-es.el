@@ -29,6 +29,16 @@
 (perinf-i18n-register-locale
  'es
  '((app.name . "Personal Work and Information System")
+   (meeting.duration . "Duración de la reunión")
+   (meeting.extra-time . "Tiempo adicional")
+   (meeting.total-time . "Tiempo total")
+   (meeting.edit-duration . "Editar duración")
+   (meeting.scheduled-duration . "Usar duración prevista")
+   (meeting.start-extra . "Iniciar tiempo adicional")
+   (meeting.stop-extra . "Detener tiempo adicional")
+   (meeting.duration-prompt . "Duración en minutos: ")
+   (meeting.time-saved . "Tiempo guardado.")
+   (meeting.duration-invalid . "La duración no puede ser negativa.")
    (memo.capture . "Nota recordatoria")
    (memo.missing . "La nota recordatoria ya no existe.")
    (memo.close-save . "Cerrar y guardar")

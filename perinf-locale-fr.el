@@ -29,6 +29,16 @@
 (perinf-i18n-register-locale
  'fr
  '((app.name . "Personal Work and Information System")
+   (meeting.duration . "Durée de réunion")
+   (meeting.extra-time . "Temps supplémentaire")
+   (meeting.total-time . "Temps total")
+   (meeting.edit-duration . "Modifier la durée")
+   (meeting.scheduled-duration . "Utiliser la durée prévue")
+   (meeting.start-extra . "Démarrer le temps supplémentaire")
+   (meeting.stop-extra . "Arrêter le temps supplémentaire")
+   (meeting.duration-prompt . "Durée en minutes : ")
+   (meeting.time-saved . "Temps enregistré.")
+   (meeting.duration-invalid . "La durée doit être positive ou nulle.")
    (memo.capture . "Pense-bête")
    (memo.missing . "Le pense-bête n’existe plus.")
    (memo.close-save . "Fermer et enregistrer")

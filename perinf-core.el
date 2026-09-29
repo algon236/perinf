@@ -131,8 +131,10 @@ part of the persistent shared Org data."
   (let ((now (current-time)) lines)
     (dolist (project perinf-core--clock-projects)
       (let ((label (perinf-core--clock-label project)))
-        (dolist (task (perinf-storage-list 'task project))
-          (when (alist-get 'TASK_TIMER_STARTED_AT
+        (dolist (task (append (perinf-storage-list 'task project)
+                              (perinf-storage-list 'meeting project)))
+          (when (alist-get (if (eq (perinf-object-type task) 'meeting)
+                               'MEETING_TIMER_STARTED_AT 'TASK_TIMER_STARTED_AT)
                           (perinf-object-properties task))
             (push
              (concat
@@ -143,7 +145,9 @@ part of the persistent shared Org data."
                          "[\n\r\t]+" " " (perinf-object-title task))
                         32 nil nil "…")
                        (perinf-task-format-work-time
-                        (perinf-task-total-work-seconds task now)))
+                        (if (eq (perinf-object-type task) 'meeting)
+                            (perinf-meeting-extra-seconds task now)
+                          (perinf-task-total-work-seconds task now))))
                'face '(:box (:line-width 1 :style released-button))
                'help-echo (concat project " — " (perinf-object-title task)))
               "\n")
@@ -174,7 +178,11 @@ Hidden buffers keep running.  A storage error prevents deletion."
     (dolist (project perinf-core--clock-projects)
       (dolist (task (perinf-storage-list 'task project))
         (when (alist-get 'TASK_TIMER_STARTED_AT (perinf-object-properties task))
-          (perinf-storage-stop-task-timer (perinf-object-id task) project now)))))
+          (perinf-storage-stop-task-timer (perinf-object-id task) project now)))
+      (dolist (meeting (perinf-storage-list 'meeting project))
+        (when (alist-get 'MEETING_TIMER_STARTED_AT (perinf-object-properties meeting))
+          (perinf-storage-set-meeting-time
+           (perinf-object-id meeting) 'stop nil project now)))))
   t)
 
 (defun perinf-core--cancel-clock-display ()
@@ -1640,6 +1648,28 @@ Keyboard button actions run COMMAND immediately."
            (perinf-core--detail-value
             (perinf-i18n 'details.finish)
             (perinf-time-format finish-at time-format)))
+         (let* ((duration (perinf-meeting-duration-seconds object))
+                (extra (perinf-meeting-extra-seconds object))
+                (running (alist-get 'MEETING_TIMER_STARTED_AT properties)))
+           (dolist (entry `((meeting.duration . ,duration)
+                            (meeting.extra-time . ,extra)
+                            (meeting.total-time . ,(+ duration extra))))
+             (perinf-core--detail-value (perinf-i18n (car entry))
+                                        (perinf-task-format-work-time (cdr entry))))
+           (dolist (entry `((meeting.edit-duration . edit)
+                            (meeting.scheduled-duration . duration)
+                            (,(if running 'meeting.stop-extra 'meeting.start-extra)
+                             . ,(if running 'stop 'start))))
+             (perinf-core--insert-button
+              (perinf-i18n (car entry))
+              (lambda (button)
+                (let ((id (button-get button 'meeting-id))
+                      (action (button-get button 'time-action)))
+                  (if (eq action 'edit) (perinf-meeting-edit-duration id)
+                    (perinf-meeting-change-time id action))))
+              'meeting-id (perinf-object-id object) 'time-action (cdr entry))
+             (insert "  "))
+           (insert "\n\n"))
          (when actual-start-at
            (perinf-core--detail-value
             (perinf-i18n 'meeting.actual-start)

@@ -122,3 +122,15 @@ af en eksisterende kildeinstallation; brug Python-installeren på en ny computer
 Pakken indeholder ingen personlige projekter, private data eller lokal state.
 GPL-3.0-or-later, Niels Søndergaard og øvrige angivne bidragydere; se LICENSE.
 Se VALIDATION.md for testresultater og begrænsninger.
+
+### Tid på møder
+
+Mødedetaljerne viser mødetid, ekstratid og samlet tid. Mødetiden beregnes
+ud fra planlagt start og slut. **Ret mødetid** angiver den faktiske varighed
+i minutter uden at ændre aftalens tidspunkter; **Brug planlagt mødetid**
+fjerner rettelsen. **Start ekstratid** og **Stop ekstratid** summerer fx
+forberedelse og referatskrivning, også efter mødet er afholdt. Ekstratimeren
+vises øverst og stoppes, når PerInf-bufferen lukkes. Den stopper ikke ved
+inaktivitet på tastaturet. Mangler start eller slut, er mødetiden nul, indtil
+den angives manuelt. Nye statistikker viser afholdte møders varighed og gemt
+ekstratid separat; eksisterende rapporter ændres ikke.

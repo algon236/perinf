@@ -29,6 +29,16 @@
 (perinf-i18n-register-locale
  'da
  '((app.name . "Personligt arbejds- og informationssystem")
+   (meeting.duration . "Mødetid")
+   (meeting.extra-time . "Ekstratid")
+   (meeting.total-time . "Samlet tid")
+   (meeting.edit-duration . "Ret mødetid")
+   (meeting.scheduled-duration . "Brug planlagt mødetid")
+   (meeting.start-extra . "Start ekstratid")
+   (meeting.stop-extra . "Stop ekstratid")
+   (meeting.duration-prompt . "Mødetid i minutter: ")
+   (meeting.time-saved . "Tiden er gemt.")
+   (meeting.duration-invalid . "Mødetiden skal være mindst nul.")
    (memo.capture . "Husk")
    (memo.missing . "Noten findes ikke længere.")
    (memo.close-save . "Luk og gem")

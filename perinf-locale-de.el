@@ -29,6 +29,16 @@
 (perinf-i18n-register-locale
  'de
  '((app.name . "Personal Work and Information System")
+   (meeting.duration . "Besprechungsdauer")
+   (meeting.extra-time . "Zusatzzeit")
+   (meeting.total-time . "Gesamtzeit")
+   (meeting.edit-duration . "Dauer ändern")
+   (meeting.scheduled-duration . "Geplante Dauer verwenden")
+   (meeting.start-extra . "Zusatzzeit starten")
+   (meeting.stop-extra . "Zusatzzeit stoppen")
+   (meeting.duration-prompt . "Besprechungsdauer in Minuten: ")
+   (meeting.time-saved . "Zeit gespeichert.")
+   (meeting.duration-invalid . "Die Dauer darf nicht negativ sein.")
    (memo.capture . "Merkzettel")
    (memo.missing . "Der Merkzettel existiert nicht mehr.")
    (memo.close-save . "Schließen und speichern")

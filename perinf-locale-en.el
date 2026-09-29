@@ -29,6 +29,16 @@
 (perinf-i18n-register-locale
  'en
  '((app.name . "Personal Work and Information System")
+   (meeting.duration . "Meeting duration")
+   (meeting.extra-time . "Extra time")
+   (meeting.total-time . "Total time")
+   (meeting.edit-duration . "Edit meeting duration")
+   (meeting.scheduled-duration . "Use scheduled duration")
+   (meeting.start-extra . "Start extra time")
+   (meeting.stop-extra . "Stop extra time")
+   (meeting.duration-prompt . "Meeting duration in minutes: ")
+   (meeting.time-saved . "Time saved.")
+   (meeting.duration-invalid . "Duration must be non-negative.")
    (memo.capture . "Memo")
    (memo.missing . "The memo no longer exists.")
    (memo.close-save . "Close and save")
